@@ -1,0 +1,39 @@
+# Create frontend directory if it doesn't exist
+mkdir -p frontend
+
+# Create frontend .gitignore
+cat > frontend/.gitignore << 'EOF'
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporary files
+*.tmp
+*.temp
+EOF
+
+# Now add both .gitignore files
+git add backend/.gitignore frontend/.gitignorenode_modules/
+.DS_Store
+package-lock.json
