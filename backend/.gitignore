@@ -1,0 +1,54 @@
+# ============================================
+# DATASETS & DOWNLOADED DATA
+# ============================================
+
+# Ignore entire data directory (where datasets are stored)
+/data/
+/data/**/*.zip
+/data/**/*.csv
+/data/**/*.xlsx
+/data/**/*.xls
+/data/**/*.json
+/data/**/*.geojson
+
+# GIS/Shapefile data
+/data/**/*.shp
+/data/**/*.shx
+/data/**/*.dbf
+/data/**/*.prj
+/data/**/*.cpg
+/data/**/*.sbn
+/data/**/*.sbx
+
+# Downloaded and extracted folders
+/downloads/
+/extracted/
+/data/downloads/
+/data/extracted/
+/data/raw/
+/data/processed/
+
+# Specific dataset patterns
+**/unfallatlas/**/*.zip
+**/unfallatlas/**/*.csv
+**/regionalatlas/**/*.csv
+**/gemeindeverzeichnis/**/*.xlsx
+**/genesis/**/*.csv
+
+# Alternative: Ignore by file extension (simpler)
+*.zip
+*.csv
+*.xlsx
+*.xls
+*.shp
+*.shx
+*.dbf
+*.prj
+*.geojson
+*.json
+
+# But keep directory structure (optional)
+!/data/.gitkeep
+!/data/**/.gitkeep
+
+nano backend/.gitignore
