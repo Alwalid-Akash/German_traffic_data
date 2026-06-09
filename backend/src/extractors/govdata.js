@@ -1,29 +1,66 @@
 const BaseExtractor = require("./baseextractor");
 
-// Direct links that are known to work (from NRW open data)
-const DATASETS = [
-  "https://www.opengeodata.nrw.de/produkte/transport_verkehr/unfallatlas/Unfallorte2024_EPSG25832_CSV.zip",
-  "https://www.opengeodata.nrw.de/produkte/transport_verkehr/unfallatlas/Unfallorte2023_EPSG25832_CSV.zip",
+const SOURCE = {
+  code: "govdata",
+  name: "GovData traffic accident metadata",
+  provider: "GovData",
+  note: "GovData is used as metadata/provenance source, not as the main accident dataset."
+};
+
+const GOVDATA_URLS = [
+  "https://www.govdata.de/suche?tags=str%C3%A4%C3%9Fenverkehrsunf%C3%A4lle",
+  "https://www.govdata.de/suche/daten/verkehrsunfaelleb862c",
+  "https://www.govdata.de/suche/daten/unfallatlas"
 ];
 
 class GovData extends BaseExtractor {
   constructor(downloader) {
-    super(downloader, "GovData");
+    super(downloader, SOURCE);
   }
 
   async downloadAll(force = false) {
-    this.log(`Attempting to download ${DATASETS.length} known accident ZIPs.`);
-    const results = [];
-    for (const url of DATASETS) {
-      try {
-        const filename = url.split('/').pop();
-        const result = await this.downloadFile(url, filename, force, true);
-        results.push({ url, ...result });
-      } catch (err) {
-        this.error(`Failed ${url}: ${err.message}`);
+    const sourceReferenceFile = await this.saveSourceReference({
+      purpose:
+        "Save GovData metadata pages for documentation and provenance. Accident ZIP files are downloaded by Unfallatlas extractor."
+    });
+
+    const pages = [];
+    const errors = [];
+
+    for (let i = 0; i < GOVDATA_URLS.length; i++) {
+      const url = GOVDATA_URLS[i];
+      const filename = `govdata_page_${i + 1}.html`;
+
+      this.log(`Downloading GovData metadata page ${i + 1}`);
+
+      const download = await this.downloader.download(url, filename, {
+        force,
+        folder: this.downloader.metadataFolder
+      });
+
+      const record = {
+        sourceCode: this.sourceCode,
+        sourceName: this.sourceName,
+        originalSourceUrl: url,
+        download
+      };
+
+      pages.push(record);
+
+      if (download.status === "failed") {
+        errors.push(record);
       }
     }
-    return { source: this.sourceName, count: results.length, files: results };
+
+    return {
+      sourceCode: this.sourceCode,
+      sourceName: this.sourceName,
+      sourceReferenceFile,
+      downloadedCount: pages.filter(page => page.download.status !== "failed").length,
+      failedCount: errors.length,
+      pages,
+      errors
+    };
   }
 }
 
