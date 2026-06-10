@@ -1,7 +1,7 @@
 const Downloader = require("../../downloader");
 
-const Unfallatlas = require("./unfallatlas");
-const GVISys = require("./gvisys");
+const Unfallatlas = require("./core/unfallatlas");
+const GVISys = require("./core/gvisys");
 const SimplePageExtractor = require("./simplepageextractor");
 
 /*

@@ -9,6 +9,22 @@ const pool = new Pool({
   database: process.env.DB_NAME,
 });
 
+// Small helper for running SQL queries.
+async function query(sql, params = []) {
+  return pool.query(sql, params);
+}
+
+// Close database connection when script is finished.
+async function close() {
+  await pool.end();
+}
+
+module.exports = {
+  query,
+  close
+};
+
+
 // Test connection
 pool.connect()
   .then(client => {
