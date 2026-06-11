@@ -1,4 +1,4 @@
-const BaseExtractor = require("./baseextractor");
+const BaseExtractor = require("../baseextractor");
 
 const SOURCE = {
   code: "govdata",

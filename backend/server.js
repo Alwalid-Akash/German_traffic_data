@@ -1,7 +1,7 @@
 const express = require("express");
 
 const { downloadAllSources } = require("./src/extractors/finaldownload");
-const { runEtl } = require("./src/etl/runEtl");
+const { runEtl } = require("./src/etl/runetl");
 
 const app = express();
 const PORT = process.env.PORT || 3000;

@@ -4,14 +4,30 @@ async function insertRegions(regions) {
   for (const region of regions) {
     await db.query(
       `
-      INSERT INTO regions (ags, name, level, population)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (ags, level)
+      INSERT INTO regions (
+        ags,
+        name,
+        level,
+        parent_region_id,
+        geometry,
+        population
+      )
+      VALUES ($1, $2, $3, NULL, $4, $5)
+      ON CONFLICT (ags)
       DO UPDATE SET
         name = EXCLUDED.name,
-        population = EXCLUDED.population
+        level = EXCLUDED.level,
+        geometry = EXCLUDED.geometry,
+        population = EXCLUDED.population,
+        updated_at = NOW()
       `,
-      [region.ags, region.name, region.level, region.population]
+      [
+        region.ags,
+        region.name,
+        region.level || "unknown",
+        region.geometry || null,
+        region.population || null
+      ]
     );
   }
 }
@@ -22,18 +38,31 @@ async function updateRegionParents() {
     UPDATE regions child
     SET parent_region_id = parent.region_id
     FROM regions parent
-    WHERE
-      (
-        (child.level = 'municipality' AND parent.level = 'district' AND LEFT(child.ags, 5) = parent.ags)
+    WHERE child.parent_region_id IS NULL
+      AND (
+        (
+          child.level = 'district'
+          AND parent.level = 'state'
+          AND parent.ags = LEFT(child.ags, 2)
+        )
         OR
-        (child.level = 'district' AND parent.level = 'state' AND LEFT(child.ags, 2) = parent.ags)
+        (
+          child.level = 'municipality'
+          AND parent.level = 'district'
+          AND parent.ags = LEFT(child.ags, 5)
+        )
       )
     `
   );
 }
 
 async function getRegionMap() {
-  const result = await db.query("SELECT region_id, ags, level FROM regions");
+  const result = await db.query(
+    `
+    SELECT region_id, ags
+    FROM regions
+    `
+  );
 
   const map = new Map();
 

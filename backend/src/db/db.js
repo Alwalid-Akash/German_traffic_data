@@ -9,30 +9,27 @@ const pool = new Pool({
   database: process.env.DB_NAME,
 });
 
-// Small helper for running SQL queries.
 async function query(sql, params = []) {
   return pool.query(sql, params);
 }
 
-// Close database connection when script is finished.
 async function close() {
   await pool.end();
 }
 
+async function testConnection() {
+  try {
+    await pool.query("SELECT NOW()");
+    console.log("✅ Database connected successfully");
+  } catch (err) {
+    console.error("❌ Database connection failed:", err.message);
+    throw err;
+  }
+}
+
 module.exports = {
   query,
-  close
+  close,
+  testConnection
 };
 
-
-// Test connection
-pool.connect()
-  .then(client => {
-    console.log("✅ Database connected successfully");
-    client.release();
-  })
-  .catch(err => {
-    console.error("Database connection failed:", err.message);
-  });
-
-module.exports = pool;

@@ -1,7 +1,7 @@
 const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");
-const BaseExtractor = require("./baseextractor");
+const BaseExtractor = require("../baseextractor");
 
 const SOURCE = {
   code: "genesis",

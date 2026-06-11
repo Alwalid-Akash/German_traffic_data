@@ -1,3 +1,33 @@
+/*
+  downloader.js
+
+  This is the shared download helper for the whole backend project.
+
+  Purpose:
+  - Create data folders
+  - Download files from URLs
+  - Reuse cached files when force=false
+  - Retry failed downloads
+  - Save files safely
+  - Calculate SHA-256 checksum
+  - Extract ZIP files
+  - Save metadata JSON
+  - Save manifest JSON
+
+  Important:
+  This file should NOT contain source-specific logic.
+
+  Do NOT put these here:
+  - Unfallatlas year logic
+  - GV-ISys parsing logic
+  - Regionalatlas table codes
+  - Accident transformation logic
+  - Database loading logic
+
+  This file only answers:
+  "How do we download and store raw files reproducibly?"
+*/
+
 const fs = require("fs-extra");
 const path = require("path");
 const axios = require("axios");
@@ -7,51 +37,47 @@ const crypto = require("crypto");
 class Downloader {
   constructor(baseFolder = "./data") {
     /*
-      This is the main data folder.
+      Main project data folder.
 
-      Example:
+      Default:
       backend/data/
     */
     this.dataFolder = path.resolve(baseFolder);
 
     /*
-      Raw downloaded files will be saved here.
+      Folder for downloaded raw files.
 
-      Examples:
-      data/downloads/Unfallorte2024_EPSG25832_CSV.zip
-      data/downloads/31122024_Auszug_GV.xlsx
-      data/downloads/DSB_Unfallatlas.pdf
+      Example:
+      data/downloads/
     */
     this.downloadsFolder = path.join(this.dataFolder, "downloads");
 
     /*
-      Extracted ZIP files will be saved here.
+      Folder for extracted ZIP contents.
 
       Example:
-      data/extracted/Unfallorte2024_EPSG25832_CSV/
+      data/extracted/
     */
     this.extractedFolder = path.join(this.dataFolder, "extracted");
 
     /*
-      Metadata/reference pages will be saved here.
+      Folder for source metadata files.
 
-      Examples:
-      data/metadata/govdata_page_1.html
-      data/metadata/regionalatlas_homepage.html
-      data/metadata/unfallatlas_source_reference.json
+      Example:
+      data/metadata/
     */
     this.metadataFolder = path.join(this.dataFolder, "metadata");
 
     /*
-      Final manifest file will be saved here.
+      Folder for project-level manifest files.
 
       Example:
-      data/manifest/download_manifest.json
+      data/manifest/
     */
     this.manifestFolder = path.join(this.dataFolder, "manifest");
 
     /*
-      Create folders automatically if they do not exist.
+      Ensure all folders exist before downloading.
     */
     fs.ensureDirSync(this.downloadsFolder);
     fs.ensureDirSync(this.extractedFolder);
@@ -60,49 +86,43 @@ class Downloader {
   }
 
   /*
-    Simple logger.
-    This makes terminal messages easier to understand.
+    Small logger helper.
+    Keeps downloader logs easy to recognize in terminal output.
   */
   log(message) {
     console.log(`[Downloader] ${message}`);
   }
 
   /*
-    Makes filenames safe for the operating system.
+    Convert unsafe filenames into safe local filenames.
 
-    Some characters are not safe in file names:
-    < > : " / \\ | ? *
-
-    This function replaces those characters with "_".
+    Why:
+    Some URLs or source titles may contain characters that are not safe
+    on Windows/macOS/Linux file systems.
   */
   safeFilename(filename) {
-    return filename
+    return String(filename)
       .replace(/[<>:"/\\|?*\x00-\x1F]/g, "_")
       .replace(/\s+/g, "_")
       .slice(0, 180);
   }
 
   /*
-    Extract filename from URL.
-
-    Example:
-    https://example.com/file.zip
-    becomes:
-    file.zip
+    If no custom filename is provided, create a filename from the URL path.
   */
   filenameFromUrl(url) {
     const urlObj = new URL(url);
     const filename = decodeURIComponent(path.basename(urlObj.pathname));
+
     return filename || "download.bin";
   }
 
   /*
-    Create SHA-256 checksum for a file.
+    Calculate SHA-256 checksum for a file.
 
-    Why this is important:
-    - It proves the downloaded file did not change.
-    - It helps reproducibility.
-    - It is useful for your project report.
+    Why:
+    Checksums help prove that the raw file was saved unchanged.
+    This is useful for reproducibility and provenance.
   */
   async sha256(filePath) {
     const hash = crypto.createHash("sha256");
@@ -118,13 +138,9 @@ class Downloader {
   }
 
   /*
-    Get file information after download.
+    Return common file information.
 
-    It returns:
-    - file path
-    - file name
-    - file size
-    - SHA-256 checksum
+    Used after download or when using cached files.
   */
   async fileInfo(filePath) {
     const stat = await fs.stat(filePath);
@@ -139,20 +155,27 @@ class Downloader {
   }
 
   /*
-    Main download function.
+    Download a file from a URL.
 
     Parameters:
-    - url: official source URL
-    - customFilename: filename we want to save as
+    - url: source URL
+    - customFilename: filename to save as
     - options.force:
-        false = use existing file if already downloaded
-        true  = download again
+        true  = download again even if file exists
+        false = reuse cached file if file already exists
     - options.folder:
-        custom folder to save file
-    - options.maxRetries:
-        how many times to retry failed downloads
+        custom target folder
     - options.timeout:
-        max time for request
+        request timeout in milliseconds
+    - options.maxRetries:
+        number of retry attempts
+
+    Return:
+    - status: downloaded, cached, or failed
+    - file path
+    - checksum
+    - file size
+    - source URL
   */
   async download(url, customFilename, options = {}) {
     const force = options.force === true;
@@ -164,18 +187,24 @@ class Downloader {
 
     const filename = this.safeFilename(customFilename || this.filenameFromUrl(url));
     const filePath = path.join(folder, filename);
+
+    /*
+      Temporary file path.
+
+      We first download into ".part".
+      Only after successful download do we move it to the final filename.
+
+      This prevents broken partial files from being treated as complete files.
+    */
     const tempPath = `${filePath}.part`;
 
     const startedAt = new Date().toISOString();
 
     /*
-      If file already exists and force is false,
-      do not download again.
+      Cache behavior.
 
-      Instead:
-      - read existing file
-      - calculate checksum
-      - return status "cached"
+      If the file already exists and force=false,
+      do not download again.
     */
     if (!force && await fs.pathExists(filePath)) {
       const info = await this.fileInfo(filePath);
@@ -193,18 +222,18 @@ class Downloader {
 
     /*
       Retry loop.
-      If download fails, try again.
+
+      Network downloads can fail sometimes.
+      We retry before reporting failure.
     */
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         this.log(`Downloading: ${filename} (attempt ${attempt}/${maxRetries})`);
 
         /*
-          Download using axios stream.
-
           responseType: "stream"
-          means large files can be downloaded safely without loading the whole
-          file into memory.
+          means large files are streamed directly to disk instead of loading
+          the whole file into memory.
         */
         const response = await axios.get(url, {
           responseType: "stream",
@@ -212,21 +241,18 @@ class Downloader {
           maxRedirects: 10,
           headers: {
             "User-Agent": "Mozilla/5.0",
-            "Accept": "*/*"
+            Accept: "*/*"
           },
           validateStatus: status => status >= 200 && status < 300
         });
 
         /*
-          Remove old temporary file if it exists.
+          Remove old incomplete temp file if it exists.
         */
         await fs.remove(tempPath);
 
         /*
-          Write download to temporary file first.
-
-          We do this because if a download fails halfway,
-          we do not want to leave a broken final file.
+          Write the response stream into the temp file.
         */
         const writer = fs.createWriteStream(tempPath);
         response.data.pipe(writer);
@@ -238,115 +264,53 @@ class Downloader {
         });
 
         /*
-          Check temporary file size.
+          Basic validation:
+          downloaded file should not be empty.
         */
         const tempStat = await fs.stat(tempPath);
 
-        /*
-          Part 1:
-          Always check that downloaded file is not empty.
-
-          This protects all files:
-          - ZIP
-          - XLSX
-          - PDF
-          - CSV
-          - HTML
-        */
         if (tempStat.size === 0) {
           throw new Error("Downloaded file is empty");
         }
 
         /*
-          Part 2:
-          Read server response information.
-
-          content-length:
-          The size the server says it is sending.
-
-          content-type:
-          The type of file the server says it is sending.
+          If server provides content-length, check file size.
         */
         const expectedLength = response.headers["content-length"];
-        const contentType = response.headers["content-type"] || "";
 
-        /*
-          Part 3:
-          Decide whether strict size checking should be used.
-
-          For real data files, strict size checking is useful:
-          - ZIP
-          - XLSX
-          - PDF
-          - CSV
-
-          But for HTML pages, strict size checking can create false errors.
-
-          Why?
-          Some websites compress, redirect, or dynamically generate HTML pages.
-          Then the saved file size can be different from content-length.
-
-          Example:
-          Regionalatlas may say:
-          expected 6326
-          but saved file is:
-          23902
-
-          That does not always mean the download failed.
-        */
-        const shouldCheckSize =
-          expectedLength &&
-          !contentType.includes("text/html");
-
-        /*
-          Part 4:
-          If it is not HTML and size is different, fail safely.
-
-          This still protects important dataset files.
-        */
-        if (shouldCheckSize && Number(expectedLength) !== tempStat.size) {
-          throw new Error(`Size mismatch: expected ${expectedLength}, got ${tempStat.size}`);
+        if (expectedLength && Number(expectedLength) !== tempStat.size) {
+          throw new Error(
+            `Size mismatch: expected ${expectedLength}, got ${tempStat.size}`
+          );
         }
 
         /*
-          Part 5:
-          Move temporary file to final file path.
-
-          Only happens after the file passed checks.
+          Move temp file to final path after successful validation.
         */
         await fs.move(tempPath, filePath, { overwrite: true });
 
-        /*
-          Calculate final file info:
-          - file size
-          - SHA-256 checksum
-        */
         const info = await this.fileInfo(filePath);
 
         this.log(`Saved: ${filename} (${info.sizeMB} MB)`);
 
-        /*
-          Return download result for manifest.
-        */
         return {
           status: "downloaded",
           sourceUrl: url,
           startedAt,
           downloadedAt: new Date().toISOString(),
           httpStatus: response.status,
-          contentType,
+          contentType: response.headers["content-type"] || null,
           contentLength: expectedLength ? Number(expectedLength) : null,
           ...info
         };
       } catch (err) {
         /*
-          If download failed, remove broken temporary file.
+          Remove failed partial file.
         */
         await fs.remove(tempPath).catch(() => { });
 
         /*
-          If this was the final attempt, return failed status.
-          We do not crash the whole program here.
+          If this was the last retry, return failed status.
         */
         if (attempt === maxRetries) {
           return {
@@ -360,7 +324,7 @@ class Downloader {
         }
 
         /*
-          Otherwise, wait and try again.
+          Otherwise wait and try again.
         */
         this.log(`Attempt ${attempt} failed: ${err.message}`);
         await new Promise(resolve => setTimeout(resolve, retryDelay));
@@ -369,13 +333,15 @@ class Downloader {
   }
 
   /*
-    Extract ZIP file.
+    Extract a ZIP file.
 
-    Used for Unfallatlas ZIP files.
+    Used by sources like Unfallatlas if they provide ZIP downloads.
   */
   unzip(zipPath, customExtractFolder = null) {
     const filename = path.basename(zipPath, ".zip");
-    const targetFolder = customExtractFolder || path.join(this.extractedFolder, filename);
+
+    const targetFolder =
+      customExtractFolder || path.join(this.extractedFolder, filename);
 
     fs.ensureDirSync(targetFolder);
 
@@ -386,7 +352,7 @@ class Downloader {
       zip.extractAllTo(targetFolder, true);
 
       /*
-        Save ZIP entry list for manifest.
+        Store ZIP entry information for provenance/debugging.
       */
       const entries = zip.getEntries().map(entry => ({
         entryName: entry.entryName,
@@ -413,7 +379,11 @@ class Downloader {
   }
 
   /*
-    Save any object as JSON file.
+    Save JSON to a selected folder.
+
+    This is used internally by:
+    - saveMetadata()
+    - saveManifest()
   */
   async saveJson(folder, filename, data) {
     fs.ensureDirSync(folder);
@@ -426,17 +396,17 @@ class Downloader {
   }
 
   /*
-    Save metadata JSON file.
+    Save metadata JSON for one source or one downloaded file.
 
     Example:
-    data/metadata/unfallatlas_source_reference.json
+    data/metadata/regionalatlas_12411-01-01-4_metadata.json
   */
   async saveMetadata(filename, data) {
     return this.saveJson(this.metadataFolder, filename, data);
   }
 
   /*
-    Save manifest JSON file.
+    Save project-level manifest JSON.
 
     Example:
     data/manifest/download_manifest.json

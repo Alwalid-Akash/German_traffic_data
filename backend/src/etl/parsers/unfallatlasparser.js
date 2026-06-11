@@ -14,20 +14,41 @@ async function findAccidentFiles(extractedFolder) {
 
       if (stat.isDirectory()) {
         await walk(fullPath);
-      } else if (item.toLowerCase().endsWith(".csv") || item.toLowerCase().endsWith(".txt")) {
-        files.push(fullPath);
+      } else {
+        const lower = item.toLowerCase();
+
+        if (
+          (lower.endsWith(".csv") || lower.endsWith(".txt")) &&
+          lower.includes("unfallorte")
+        ) {
+          files.push(fullPath);
+        }
       }
     }
   }
 
   await walk(extractedFolder);
 
-  return files;
+  return files.sort();
 }
 
 function guessYearFromFile(filePath) {
-  const match = filePath.match(/20\d{2}/);
-  return match ? Number(match[0]) : null;
+  const fileName = path.basename(filePath);
+  const folderName = path.basename(path.dirname(filePath));
+  const parentFolderName = path.basename(path.dirname(path.dirname(filePath)));
+
+  // Important:
+  // Do NOT search the full file path because your project folder has "DBW SS2026".
+  // Search only file/folder names near the accident file.
+  const text = `${fileName} ${folderName} ${parentFolderName}`;
+
+  const match = text.match(/20(16|17|18|19|20|21|22|23|24)/);
+
+  if (!match) {
+    throw new Error(`Could not detect accident year from file: ${filePath}`);
+  }
+
+  return Number(match[0]);
 }
 
 async function parseAccidentFile(filePath) {

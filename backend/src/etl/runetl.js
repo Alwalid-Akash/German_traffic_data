@@ -1,37 +1,187 @@
 const path = require("path");
+const fs = require("fs-extra");
 
-const db = require("../db/db");
+const { parseGVISysExcel } = require("./parsers/gvisysparser");
+const { transformGVISysRows } = require("./transformers/regiontransformer");
 
-const { parseGVISysExcel } = require("./parsers/gvisysParser");
-const { transformGVISysRows } = require("./transformers/regionTransformer");
 const {
   insertRegions,
   updateRegionParents,
   getRegionMap
-} = require("./loaders/regionLoader");
+} = require("./loaders/regionloader");
 
 const {
   findAccidentFiles,
   parseAccidentFile,
   guessYearFromFile
-} = require("./parsers/unfallatlasParser");
+} = require("./parsers/unfallatlasparser");
 
-const { transformAccidentRow } = require("./transformers/accidentTransformer");
-const { insertAccidents } = require("./loaders/accidentLoader");
+const { transformAccidentRow } = require("./transformers/accidenttransformer");
+const { insertAccidents } = require("./loaders/accidentloader");
 
 const {
   startImportRun,
   finishImportRun,
   saveSourceFile
-} = require("./loaders/provenanceLoader");
+} = require("./loaders/provenanceloader");
 
-const { seedIndicators } = require("./loaders/indicatorLoader");
-const { buildIndicators } = require("./aggregators/indicatorAggregator");
+const { seedIndicators } = require("./loaders/indicatorloader");
+const { buildIndicators } = require("./aggregators/indicatoraggregator");
+
+const { parseRegionalAtlasCsv } = require("./parsers/regionalatlasparser");
+const { transformRegionalAtlasRows } = require("./transformers/regionalatlastransformer");
+
+const {
+  insertRegionalAtlasValues,
+  updateRegionPopulationFromIndicator
+} = require("./loaders/regionalatlasloader");
+
+async function loadRegionalAtlasData(dataFolder, regionMap, importRunId) {
+  console.log("Reading Regionalatlas / Regionalstatistik CSV files...");
+
+  const regionalAtlasFiles = [
+    {
+      filePath: path.join(
+        dataFolder,
+        "downloads",
+        "regionalatlas_46241-01-04-4_traffic_accidents_districts.csv"
+      ),
+      indicatorCode: "regional_traffic_accidents_districts",
+      indicatorName: "Traffic accidents - districts/cities",
+      unit: "count",
+      preferTotalRows: true
+    },
+    {
+      filePath: path.join(
+        dataFolder,
+        "downloads",
+        "regionalatlas_46241-01-04-5_traffic_accidents_municipalities.csv"
+      ),
+      indicatorCode: "regional_traffic_accidents_municipalities",
+      indicatorName: "Traffic accidents - municipalities",
+      unit: "count",
+      preferTotalRows: true
+    },
+    {
+      filePath: path.join(
+        dataFolder,
+        "downloads",
+        "regionalatlas_12411-01-01-4_population_districts.csv"
+      ),
+      indicatorCode: "population_districts",
+      indicatorName: "Population - districts/cities",
+      unit: "persons",
+      preferTotalRows: true
+    },
+    {
+      filePath: path.join(
+        dataFolder,
+        "downloads",
+        "regionalatlas_12411-01-01-5_population_municipalities.csv"
+      ),
+      indicatorCode: "population_municipalities",
+      indicatorName: "Population - municipalities",
+      unit: "persons",
+      preferTotalRows: true
+    },
+    {
+      filePath: path.join(
+        dataFolder,
+        "downloads",
+        "regionalatlas_11111-01-01-4_area_districts.csv"
+      ),
+      indicatorCode: "area_km2_districts",
+      indicatorName: "Area in km² - districts/cities",
+      unit: "km2",
+      preferTotalRows: false
+    },
+    {
+      filePath: path.join(
+        dataFolder,
+        "downloads",
+        "regionalatlas_11111-01-01-5_area_municipalities.csv"
+      ),
+      indicatorCode: "area_km2_municipalities",
+      indicatorName: "Area in km² - municipalities",
+      unit: "km2",
+      preferTotalRows: false
+    },
+    {
+      filePath: path.join(
+        dataFolder,
+        "downloads",
+        "regionalatlas_46251-01-03-4_vehicle_stock_districts.csv"
+      ),
+      indicatorCode: "vehicle_stock_districts",
+      indicatorName: "Vehicle stock - districts/cities",
+      unit: "vehicles",
+      preferTotalRows: true
+    },
+    {
+      filePath: path.join(
+        dataFolder,
+        "downloads",
+        "regionalatlas_46251-02-01-4_passenger_cars_districts.csv"
+      ),
+      indicatorCode: "passenger_cars_districts",
+      indicatorName: "Passenger cars - districts/cities",
+      unit: "cars",
+      preferTotalRows: true
+    }
+  ];
+
+  let totalSavedValues = 0;
+
+  for (const file of regionalAtlasFiles) {
+    if (!await fs.pathExists(file.filePath)) {
+      console.log("Regionalatlas file not found, skipping:");
+      console.log(file.filePath);
+      continue;
+    }
+
+    console.log("--------------------------------------");
+    console.log("Parsing Regionalatlas file:");
+    console.log(file.filePath);
+
+    await saveSourceFile(
+      importRunId,
+      file.filePath,
+      "Regionalatlas / Regionalstatistik GENESIS",
+      null
+    );
+
+    const rows = await parseRegionalAtlasCsv(file.filePath);
+
+    console.log("Regionalatlas raw row count:", rows.length);
+
+    const values = transformRegionalAtlasRows(rows, {
+      regionMap,
+      indicatorCode: file.indicatorCode,
+      indicatorName: file.indicatorName,
+      unit: file.unit,
+      preferTotalRows: file.preferTotalRows
+    });
+
+    await insertRegionalAtlasValues(values, importRunId);
+
+    totalSavedValues += values.length;
+
+    console.log(`Saved ${values.length} Regionalatlas indicator values.`);
+  }
+
+  await updateRegionPopulationFromIndicator("population_municipalities");
+  await updateRegionPopulationFromIndicator("population_districts");
+
+  return totalSavedValues;
+}
 
 async function runEtl() {
-  const importRunId = await startImportRun("Full ETL import from downloaded raw files");
+  const importRunId = await startImportRun(
+    "Full ETL import from downloaded raw files"
+  );
 
   let regionCount = 0;
+  let regionalAtlasValueCount = 0;
   let accidentFileCount = 0;
   let accidentRowCount = 0;
 
@@ -51,29 +201,46 @@ async function runEtl() {
 
     const extractedFolder = path.join(dataFolder, "extracted");
 
-    // 1. Parse GV-ISys Excel
     console.log("Reading GV-ISys Excel file...");
     const gvisysRows = parseGVISysExcel(gvisysFile);
 
-    // 2. Normalize regions
+    console.log("GV-ISys raw row count:", gvisysRows.length);
+
+    if (gvisysRows.length > 0) {
+      console.log("GV-ISys first row:");
+      console.log(gvisysRows[0]);
+
+      console.log("GV-ISys column names:");
+      console.log(Object.keys(gvisysRows[0]));
+    }
+
     console.log("Normalizing region data...");
     const regions = transformGVISysRows(gvisysRows);
     regionCount = regions.length;
 
-    // 3. Save regions into database
     console.log(`Saving ${regionCount} regions into database...`);
+
+    if (regionCount === 0) {
+      throw new Error(
+        "GV-ISys region parsing returned 0 regions. Check Excel column names printed above."
+      );
+    }
+
     await insertRegions(regions);
     await updateRegionParents();
 
-    // 4. Get region map for accident loading
     const regionMap = await getRegionMap();
 
-    // 5. Find Unfallatlas accident files
+    regionalAtlasValueCount = await loadRegionalAtlasData(
+      dataFolder,
+      regionMap,
+      importRunId
+    );
+
     console.log("Finding Unfallatlas files...");
     const accidentFiles = await findAccidentFiles(extractedFolder);
     accidentFileCount = accidentFiles.length;
 
-    // 6. Parse, normalize, and save accidents
     for (const filePath of accidentFiles) {
       const year = guessYearFromFile(filePath);
 
@@ -107,11 +274,9 @@ async function runEtl() {
       accidentRowCount += accidents.length;
     }
 
-    // 7. Save indicator definitions
     console.log("Saving indicator definitions...");
     await seedIndicators();
 
-    // 8. Create aggregated indicator values
     console.log("Calculating aggregated indicators...");
     await buildIndicators(importRunId);
 
@@ -127,6 +292,7 @@ async function runEtl() {
       importRunId,
       saved: {
         regions: regionCount,
+        regionalAtlasValues: regionalAtlasValueCount,
         accidentFiles: accidentFileCount,
         accidentRows: accidentRowCount
       }
@@ -148,12 +314,10 @@ async function runEtl() {
   }
 }
 
-// This allows server.js to use runEtl()
 module.exports = {
   runEtl
 };
 
-// This allows terminal command: node src/etl/runEtl.js
 if (require.main === module) {
   runEtl()
     .then(result => {
