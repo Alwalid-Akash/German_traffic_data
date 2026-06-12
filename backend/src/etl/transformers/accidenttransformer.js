@@ -10,6 +10,12 @@ function toInt(value) {
   return Number.isFinite(number) ? number : null;
 }
 
+function toNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(String(value).replace(",", "."));
+  return Number.isFinite(number) ? number : null;
+}
+
 function toBool(value) {
   return String(value) === "1" || String(value).toLowerCase() === "true";
 }
@@ -26,21 +32,35 @@ function makeSourceKey(filePath, rowNumber) {
     .digest("hex");
 }
 
-function makeRegionAgs(row) {
+function makeRegionAgsCandidates(row) {
   const state = pad(get(row, "ULAND"), 2);
-  const district = pad(get(row, "UKREIS"), 3);
+  const rb = pad(get(row, "UREGBEZ"), 1);
+  const district = pad(get(row, "UKREIS"), 2);
   const municipality = pad(get(row, "UGEMEINDE"), 3);
+  const candidates = [];
 
-  if (state && district && municipality) {
-    return `${state}${district}${municipality}`;
+  if (state && rb && district && municipality) {
+    candidates.push(`${state}${rb}${district}${municipality}`);
   }
 
-  if (state && district) {
-    return `${state}${district}`;
+  if (state && rb && district) {
+    candidates.push(`${state}${rb}${district}`);
   }
 
   if (state) {
-    return state;
+    candidates.push(state);
+  }
+
+  return candidates;
+}
+
+function findRegionId(row, regionMap) {
+  for (const ags of makeRegionAgsCandidates(row)) {
+    const regionId = regionMap.get(ags);
+
+    if (regionId) {
+      return regionId;
+    }
   }
 
   return null;
@@ -50,8 +70,7 @@ function transformAccidentRow(row, context) {
   const year = toInt(get(row, "UJAHR")) || context.year;
   const category = get(row, "UKATEGORIE");
 
-  const regionAgs = makeRegionAgs(row);
-  const regionId = regionAgs ? context.regionMap.get(regionAgs) : null;
+  const regionId = findRegionId(row, context.regionMap);
 
   return {
     sourceAccidentKey: makeSourceKey(context.filePath, context.rowNumber),
@@ -74,8 +93,8 @@ function transformAccidentRow(row, context) {
     isCar: toBool(get(row, "IstPKW")),
     isMotorcycle: toBool(get(row, "IstKrad")),
 
-    longitude: Number(get(row, "XGCSWGS84")) || null,
-    latitude: Number(get(row, "YGCSWGS84")) || null,
+    longitude: toNumber(get(row, "XGCSWGS84")),
+    latitude: toNumber(get(row, "YGCSWGS84")),
 
     regionId,
     sourceFileId: context.sourceFileId,

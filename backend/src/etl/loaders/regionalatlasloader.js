@@ -1,4 +1,5 @@
 const db = require("../../db/db");
+const { buildBulkValues, chunkArray } = require("./bulk");
 
 async function upsertIndicator(indicator) {
   const result = await db.query(
@@ -35,7 +36,18 @@ async function insertRegionalAtlasValues(values, importRunId) {
 
   const indicatorId = await upsertIndicator(values[0]);
 
-  for (const item of values) {
+  const chunks = chunkArray(values, 500);
+
+  for (const chunk of chunks) {
+    const { params, valuesSql } = buildBulkValues(chunk, item => [
+      item.regionId,
+      indicatorId,
+      importRunId,
+      item.year,
+      item.month,
+      item.value
+    ]);
+
     await db.query(
       `
       INSERT INTO indicator_values (
@@ -46,20 +58,13 @@ async function insertRegionalAtlasValues(values, importRunId) {
         month,
         value
       )
-      VALUES ($1, $2, $3, $4, $5, $6)
+      VALUES ${valuesSql}
       ON CONFLICT (region_id, indicator_id, year, month)
       DO UPDATE SET
         value = EXCLUDED.value,
         import_run_id = EXCLUDED.import_run_id
       `,
-      [
-        item.regionId,
-        indicatorId,
-        importRunId,
-        item.year,
-        item.month,
-        item.value
-      ]
+      params
     );
   }
 }

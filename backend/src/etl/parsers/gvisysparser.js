@@ -1,12 +1,27 @@
 const XLSX = require("xlsx");
 
 function cleanText(value) {
-  if (value === null || value === undefined) return "";
+  if (value === null || value === undefined) return null;
 
-  return String(value)
+  const text = String(value)
     .replace(/\n/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+
+  return text.length > 0 ? text : null;
+}
+
+function toNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+
+  const cleaned = String(value)
+    .replace(/\./g, "")
+    .replace(",", ".")
+    .replace(/[^\d.-]/g, "");
+
+  const number = Number(cleaned);
+
+  return Number.isFinite(number) ? number : null;
 }
 
 function shouldSkipSheet(sheetName) {
@@ -21,102 +36,73 @@ function shouldSkipSheet(sheetName) {
   );
 }
 
-function makeUniqueHeaders(headers) {
-  const result = [];
-  const used = {};
-
-  for (let i = 0; i < headers.length; i++) {
-    let header = cleanText(headers[i]);
-
-    if (!header) {
-      header = `column_${i}`;
-    }
-
-    if (used[header] === undefined) {
-      used[header] = 1;
-      result.push(header);
-    } else {
-      used[header]++;
-      result.push(`${header}_${used[header]}`);
-    }
-  }
-
-  return result;
-}
-
-function findBestHeaderRow(rawRows) {
-  for (let i = 0; i < rawRows.length; i++) {
-    const rowText = rawRows[i]
-      .map(cleanText)
-      .join(" ")
-      .toLowerCase();
-
-    if (
-      rowText.includes("land") &&
-      rowText.includes("kreis") &&
-      rowText.includes("gemeinde")
-    ) {
-      return i;
-    }
-
-    if (
-      rowText.includes("gemeindename") ||
-      rowText.includes("bezeichnung")
-    ) {
-      return i;
-    }
-  }
-
-  return -1;
-}
-
-function parseSheet(sheet, sheetName) {
+function parseGVISysSheet(sheet, sheetName) {
   const rawRows = XLSX.utils.sheet_to_json(sheet, {
     header: 1,
     defval: null
   });
 
-  console.log(`Checking sheet "${sheetName}"`);
-  console.log(`Raw rows: ${rawRows.length}`);
+  /*
+    GV-ISys structure:
+    row 1 = title
+    row 3 = main headers
+    row 4 = sub headers
+    row 5 = date/unit information
+    row 6 = empty
+    row 7+ = real data
 
-  const headerIndex = findBestHeaderRow(rawRows);
-
-  if (headerIndex === -1) {
-    console.log(`No useful header found in sheet "${sheetName}"`);
-    return [];
-  }
-
-  console.log(`Header row found in sheet "${sheetName}" at row ${headerIndex + 1}`);
-
-  const headers = makeUniqueHeaders(rawRows[headerIndex]);
-  const dataRows = rawRows.slice(headerIndex + 1);
-
-  console.log("Detected headers:");
-  console.log(headers);
+    In JavaScript array index:
+    row 7 = index 6
+  */
+  const dataRows = rawRows.slice(6);
 
   const rows = [];
 
-  for (const rawRow of dataRows) {
-    const hasContent = rawRow.some(value => cleanText(value).length > 0);
+  for (const raw of dataRows) {
+    const satzart = cleanText(raw[0]);
 
-    if (!hasContent) {
+    if (!satzart) {
       continue;
     }
 
-    const row = {};
+    rows.push({
+      satzart,
+      textkennzeichen: cleanText(raw[1]),
 
-    for (let i = 0; i < headers.length; i++) {
-      row[headers[i]] = rawRow[i];
-    }
+      land: cleanText(raw[2]),
+      rb: cleanText(raw[3]),
+      kreis: cleanText(raw[4]),
+      vb: cleanText(raw[5]),
+      gem: cleanText(raw[6]),
 
-    row.__sheetName = sheetName;
-    rows.push(row);
+      name: cleanText(raw[7]),
+
+      areaKm2: toNumber(raw[8]),
+
+      populationTotal: toNumber(raw[9]),
+      populationMale: toNumber(raw[10]),
+      populationFemale: toNumber(raw[11]),
+      populationDensity: toNumber(raw[12]),
+
+      postalCode: cleanText(raw[13]),
+
+      longitude: toNumber(raw[14]),
+      latitude: toNumber(raw[15]),
+
+      travelRegionCode: cleanText(raw[16]),
+      travelRegionName: cleanText(raw[17]),
+
+      urbanisationCode: cleanText(raw[18]),
+      urbanisationName: cleanText(raw[19]),
+
+      __sheetName: sheetName
+    });
   }
 
-  console.log(`Parsed rows from "${sheetName}": ${rows.length}`);
+  console.log(`GV-ISys parsed real data rows from "${sheetName}": ${rows.length}`);
 
   if (rows.length > 0) {
-    console.log("First parsed data row:");
+    console.log("First real GV-ISys row:");
     console.log(rows[0]);
   }
 
@@ -136,12 +122,12 @@ function parseGVISysExcel(filePath) {
 
   for (const sheetName of workbook.SheetNames) {
     if (shouldSkipSheet(sheetName)) {
-      console.log(`Skipping sheet: ${sheetName}`);
+      console.log(`Skipping GV-ISys sheet: ${sheetName}`);
       continue;
     }
 
     const sheet = workbook.Sheets[sheetName];
-    const rows = parseSheet(sheet, sheetName);
+    const rows = parseGVISysSheet(sheet, sheetName);
 
     allRows.push(...rows);
   }

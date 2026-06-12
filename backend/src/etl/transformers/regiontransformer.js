@@ -9,16 +9,6 @@ function cleanText(value) {
   return text.length > 0 ? text : null;
 }
 
-function normalizeKey(value) {
-  return String(value)
-    .toLowerCase()
-    .replace(/\s/g, "")
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss");
-}
-
 function onlyDigits(value) {
   if (value === null || value === undefined) return null;
 
@@ -27,102 +17,159 @@ function onlyDigits(value) {
   return digits.length > 0 ? digits : null;
 }
 
-function findValue(row, possibleNames) {
-  const keys = Object.keys(row);
+function padDigits(value, length) {
+  const digits = onlyDigits(value);
 
-  for (const possibleName of possibleNames) {
-    const wanted = normalizeKey(possibleName);
+  if (!digits) return null;
 
-    const foundKey = keys.find(key => {
-      const normalized = normalizeKey(key);
-      return normalized === wanted || normalized.includes(wanted);
-    });
-
-    if (
-      foundKey &&
-      row[foundKey] !== null &&
-      row[foundKey] !== undefined &&
-      row[foundKey] !== ""
-    ) {
-      return row[foundKey];
-    }
-  }
-
-  return null;
+  return digits.padStart(length, "0");
 }
 
-function detectLevel(ags) {
-  if (!ags) return "unknown";
+function makeStateAgs(row) {
+  return padDigits(row.land, 2);
+}
 
-  if (ags.length === 2) return "state";
-  if (ags.length === 5) return "district";
-  if (ags.length >= 8) return "municipality";
+function makeDistrictAgs(row) {
+  const land = padDigits(row.land, 2);
+  const rb = padDigits(row.rb, 1);
+  const kreis = padDigits(row.kreis, 2);
 
-  return "unknown";
+  if (!land || !rb || !kreis) return null;
+
+  return `${land}${rb}${kreis}`;
+}
+
+function makeMunicipalityAgs(row) {
+  const land = padDigits(row.land, 2);
+  const rb = padDigits(row.rb, 1);
+  const kreis = padDigits(row.kreis, 2);
+  const gem = padDigits(row.gem, 3);
+
+  if (!land || !rb || !kreis || !gem) return null;
+
+  return `${land}${rb}${kreis}${gem}`;
+}
+
+function makeGeometry(row) {
+  if (row.longitude === null || row.latitude === null) {
+    return null;
+  }
+
+  return JSON.stringify({
+    type: "Point",
+    coordinates: [row.longitude, row.latitude]
+  });
+}
+
+function addRegion(regionMap, region) {
+  if (!region.ags || !region.name) {
+    return;
+  }
+
+  if (!regionMap.has(region.ags)) {
+    regionMap.set(region.ags, region);
+    return;
+  }
+
+  const existing = regionMap.get(region.ags);
+
+  regionMap.set(region.ags, {
+    ...existing,
+    ...region,
+    population: region.population || existing.population,
+    geometry: region.geometry || existing.geometry
+  });
 }
 
 function transformGVISysRows(rows) {
-  const regions = [];
-  const seen = new Set();
+  const regionMap = new Map();
+
+  let states = 0;
+  let districts = 0;
+  let municipalities = 0;
+  let skipped = 0;
 
   for (const row of rows) {
-    const rawAgs =
-      findValue(row, [
-        "AGS",
-        "Amtlicher Gemeindeschlüssel",
-        "Gemeindeschlüssel",
-        "Regionalschlüssel",
-        "Schlüssel",
-        "Kennziffer",
-        "Satzart"
-      ]);
+    const satzart = cleanText(row.satzart);
+    const name = cleanText(row.name);
 
-    const ags = onlyDigits(rawAgs);
-
-    const name =
-      cleanText(
-        findValue(row, [
-          "Name",
-          "Gemeindename",
-          "Gemeinde",
-          "Bezeichnung",
-          "Gebietsname",
-          "Landkreis",
-          "Kreis",
-          "Land"
-        ])
-      );
-
-    const rawPopulation = findValue(row, [
-      "Bevölkerung",
-      "Bevölkerung insgesamt",
-      "Einwohner",
-      "Einwohner insgesamt"
-    ]);
-
-    const populationDigits = onlyDigits(rawPopulation);
-    const population = populationDigits ? Number(populationDigits) : null;
-
-    if (!ags || !name) {
+    if (!satzart || !name) {
+      skipped++;
       continue;
     }
 
-    if (ags.length < 2) {
+    /*
+      GV-ISys Satzart:
+      10 = Bundesland/state
+      40 = Kreis/district
+      50 = Gemeindeverband/association
+      60 = Gemeinde/municipality
+
+      Your schema needs:
+      state, district, municipality
+
+      So we load:
+      10, 40, 60
+      and skip:
+      50
+    */
+
+    if (satzart === "10") {
+      addRegion(regionMap, {
+        ags: makeStateAgs(row),
+        name,
+        level: "state",
+        parentAgs: null,
+        geometry: null,
+        population: row.populationTotal || null
+      });
+
+      states++;
       continue;
     }
 
-    if (seen.has(ags)) {
+    if (satzart === "40") {
+      addRegion(regionMap, {
+        ags: makeDistrictAgs(row),
+        name,
+        level: "district",
+        parentAgs: makeStateAgs(row),
+        geometry: null,
+        population: row.populationTotal || null
+      });
+
+      districts++;
       continue;
     }
 
-    seen.add(ags);
+    if (satzart === "60") {
+      addRegion(regionMap, {
+        ags: makeMunicipalityAgs(row),
+        name,
+        level: "municipality",
+        parentAgs: makeDistrictAgs(row),
+        geometry: makeGeometry(row),
+        population: row.populationTotal || null
+      });
 
-    regions.push({
-      ags,
-      name,
-      level: detectLevel(ags),
-      population: Number.isFinite(population) ? population : null
-    });
+      municipalities++;
+      continue;
+    }
+
+    skipped++;
+  }
+
+  const regions = Array.from(regionMap.values());
+
+  console.log("GV-ISys transformed regions:", regions.length);
+  console.log("GV-ISys states:", states);
+  console.log("GV-ISys districts:", districts);
+  console.log("GV-ISys municipalities:", municipalities);
+  console.log("GV-ISys skipped rows:", skipped);
+
+  if (regions.length > 0) {
+    console.log("First transformed region:");
+    console.log(regions[0]);
   }
 
   return regions;

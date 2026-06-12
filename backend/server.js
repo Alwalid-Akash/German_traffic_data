@@ -1,12 +1,31 @@
 const express = require("express");
 
-const { downloadAllSources } = require("./src/extractors/finaldownload");
+const { downloadAllSources } = require("./src/etl/extractors/finaldownload");
 const { runEtl } = require("./src/etl/runetl");
+const accidentInfoApi = require("./src/api/routes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
+app.use((req, res, next) => {
+  const query = new URLSearchParams(req.query).toString();
+  const suffix = query ? `?${query}` : "";
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}${suffix}`);
+  next();
+});
+
+app.use("/accidentinfoapi", accidentInfoApi);
 
 let lastDownloadResult = null;
 let lastEtlResult = null;
@@ -14,14 +33,14 @@ let etlRunning = false;
 
 app.get("/", (req, res) => {
   res.json({
-    project: "German Traffic Accident Analytics",
-    message: "Backend is running.",
+    project: "AccidentInfoAPI",
+    message: "Backend is running. Use /download, /etl, and /status for the reproducible pipeline.",
     routes: {
       health: "/health",
       download: "/download",
-      forceDownload: "/download?force=true",
       etl: "/etl",
-      status: "/status"
+      status: "/status",
+      api: "/accidentinfoapi/health"
     }
   });
 });
@@ -120,6 +139,15 @@ app.get("/status", (req, res) => {
   });
 });
 
+app.use((err, req, res, next) => {
+  console.error(err);
+
+  res.status(err.statusCode || 500).json({
+    error: err.statusCode ? "Bad request" : "Server error",
+    message: err.message || "Unexpected server error."
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
   console.log(`Health: http://localhost:${PORT}/health`);
@@ -127,4 +155,13 @@ app.listen(PORT, () => {
   console.log(`Force download: http://localhost:${PORT}/download?force=true`);
   console.log(`Run ETL: http://localhost:${PORT}/etl`);
   console.log(`Status: http://localhost:${PORT}/status`);
+  console.log(`AccidentInfoAPI: http://localhost:${PORT}/accidentinfoapi/health`);
+  console.log(`OpenAPI: http://localhost:${PORT}/accidentinfoapi/openapi.json`);
+});
+
+app.use((req, res) => {
+  res.status(404).json({
+    error: "Not found",
+    message: "Available routes: /health, /download, /etl, /status, /accidentinfoapi/health.",
+  });
 });

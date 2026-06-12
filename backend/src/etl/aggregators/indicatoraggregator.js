@@ -1,4 +1,4 @@
-//const db = require("../../db/db");
+const db = require("../../db/db");
 
 async function getOrCreateIndicator(code, name, unit, sourceSystem) {
   const result = await db.query(
@@ -147,23 +147,39 @@ async function saveAccidentsPer100kPassengerCars(importRunId) {
       value,
       import_run_id
     )
+    WITH accident_counts AS (
+      SELECT
+        COALESCE(district.region_id, accident_region.region_id) AS region_id,
+        a.year,
+        COUNT(*)::NUMERIC AS accident_count
+      FROM accidents a
+      JOIN regions accident_region
+        ON accident_region.region_id = a.region_id
+      LEFT JOIN regions district
+        ON district.region_id = accident_region.parent_region_id
+       AND accident_region.level = 'municipality'
+       AND district.level = 'district'
+      WHERE a.region_id IS NOT NULL
+      GROUP BY COALESCE(district.region_id, accident_region.region_id), a.year
+    )
     SELECT
-      a.region_id,
+      ac.region_id,
       $1 AS indicator_id,
-      a.year,
+      ac.year,
       0 AS month,
-      (COUNT(*)::NUMERIC / NULLIF(pc.value, 0)) * 100000 AS value,
+      (ac.accident_count / NULLIF(pc.value, 0)) * 100000 AS value,
       $2 AS import_run_id
-    FROM accidents a
-    JOIN indicator_values pc
-      ON pc.region_id = a.region_id
-     AND pc.year = a.year
-     AND pc.month = 0
-     AND pc.indicator_id = $3
-    WHERE a.region_id IS NOT NULL
-      AND pc.value IS NOT NULL
-      AND pc.value > 0
-    GROUP BY a.region_id, a.year, pc.value
+    FROM accident_counts ac
+    JOIN LATERAL (
+      SELECT iv.value
+      FROM indicator_values iv
+      WHERE iv.region_id = ac.region_id
+        AND iv.indicator_id = $3
+        AND iv.month = 0
+        AND iv.value > 0
+      ORDER BY ABS(iv.year - ac.year), iv.year DESC
+      LIMIT 1
+    ) pc ON TRUE
     ON CONFLICT (region_id, indicator_id, year, month)
     DO UPDATE SET
       value = EXCLUDED.value,

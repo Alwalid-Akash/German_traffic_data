@@ -1,7 +1,20 @@
 const db = require("../../db/db");
+const { buildBulkValues, chunkArray } = require("./bulk");
 
-async function insertRegions(regions) {
-  for (const region of regions) {
+async function insertRegions(regions, sourceFileId = null) {
+  const chunks = chunkArray(regions, 500);
+
+  for (const chunk of chunks) {
+    const { params, valuesSql } = buildBulkValues(chunk, region => [
+      region.ags,
+      region.name,
+      region.level || "unknown",
+      null,
+      region.geometry || null,
+      region.population || null,
+      sourceFileId
+    ]);
+
     await db.query(
       `
       INSERT INTO regions (
@@ -10,24 +23,20 @@ async function insertRegions(regions) {
         level,
         parent_region_id,
         geometry,
-        population
+        population,
+        source_file_id
       )
-      VALUES ($1, $2, $3, NULL, $4, $5)
+      VALUES ${valuesSql}
       ON CONFLICT (ags)
       DO UPDATE SET
         name = EXCLUDED.name,
         level = EXCLUDED.level,
         geometry = EXCLUDED.geometry,
         population = EXCLUDED.population,
+        source_file_id = EXCLUDED.source_file_id,
         updated_at = NOW()
       `,
-      [
-        region.ags,
-        region.name,
-        region.level || "unknown",
-        region.geometry || null,
-        region.population || null
-      ]
+      params
     );
   }
 }
@@ -38,20 +47,16 @@ async function updateRegionParents() {
     UPDATE regions child
     SET parent_region_id = parent.region_id
     FROM regions parent
-    WHERE child.parent_region_id IS NULL
-      AND (
-        (
-          child.level = 'district'
-          AND parent.level = 'state'
-          AND parent.ags = LEFT(child.ags, 2)
-        )
-        OR
-        (
-          child.level = 'municipality'
-          AND parent.level = 'district'
-          AND parent.ags = LEFT(child.ags, 5)
-        )
-      )
+    WHERE (
+      child.level = 'district'
+      AND parent.level = 'state'
+      AND parent.ags = LEFT(child.ags, 2)
+    )
+    OR (
+      child.level = 'municipality'
+      AND parent.level = 'district'
+      AND parent.ags = LEFT(child.ags, 5)
+    )
     `
   );
 }

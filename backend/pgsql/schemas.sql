@@ -1,29 +1,24 @@
 -- ============================================================
--- German Traffic Accident Analytics
+-- AccidentInfoAPI
 -- Normalized PostgreSQL Schema
 -- ============================================================
 --
--- Core datasets:
+-- This file is the single database source of truth for the project.
 --
--- 1. Unfallatlas
---    Main accident event dataset.
---    Loaded into: accidents
+-- Core datasets
+-- - Unfallatlas: event-level traffic accidents
+-- - GV-ISys: official region codes, names, hierarchy, population
+-- - Regionalatlas / Regionalstatistik: regional indicators, population, area,
+--   vehicle stock, passenger cars, and related statistics
 --
--- 2. GV-ISys 2024
---    Official region code, name, hierarchy, population dataset.
---    Loaded into: regions
---
--- 3. Regionalatlas / Regionalstatistik GENESIS
---    Population, area, vehicle, passenger car, and statistical indicators.
---    Loaded into: indicators and indicator_values
---
--- Design decision:
--- Raw source files are NOT copied 1:1 into database tables.
--- The project separates:
--- - events: accidents
--- - regions: regions
--- - indicators: indicators, indicator_values
--- - provenance: import_runs, source_files
+-- Design principle
+-- Raw source files are not stored 1:1 as database tables.
+-- Instead, the database uses a canonical model:
+-- - accidents: event-level rows
+-- - regions: administrative region dimension
+-- - indicators: indicator definitions
+-- - indicator_values: regional statistics and derived rates
+-- - import_runs and source_files: provenance and reproducibility
 -- ============================================================
 
 
@@ -310,7 +305,7 @@ COMMENT ON COLUMN indicators.indicator_id IS
 'Primary key. Join key used by indicator_values.indicator_id.';
 
 COMMENT ON COLUMN indicators.code IS
-'Unique indicator code used by ETL, API, and queries.';
+'Unique indicator code used by ETL and SQL queries.';
 
 COMMENT ON COLUMN indicators.name IS
 'Human-readable indicator name.';

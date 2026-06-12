@@ -36,6 +36,39 @@ const {
   updateRegionPopulationFromIndicator
 } = require("./loaders/regionalatlasloader");
 
+async function findLatestGVISysFile(dataFolder) {
+  const downloadsFolder = path.join(dataFolder, "downloads");
+  const items = await fs.readdir(downloadsFolder);
+
+  const files = items
+    .map(fileName => {
+      const match = fileName.match(/^(\d{2})(\d{2})(\d{4})_Auszug_GV\.xlsx$/i);
+
+      if (!match) {
+        return null;
+      }
+
+      const [, day, month, year] = match;
+
+      return {
+        fileName,
+        filePath: path.join(downloadsFolder, fileName),
+        datasetYear: Number(year),
+        sortKey: Number(`${year}${month}${day}`)
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.sortKey - a.sortKey);
+
+  if (files.length === 0) {
+    throw new Error(
+      "No GV-ISys *_Auszug_GV.xlsx file found in data/downloads. Run npm run download first."
+    );
+  }
+
+  return files[0];
+}
+
 async function loadRegionalAtlasData(dataFolder, regionMap, importRunId) {
   console.log("Reading Regionalatlas / Regionalstatistik CSV files...");
 
@@ -176,6 +209,10 @@ async function loadRegionalAtlasData(dataFolder, regionMap, importRunId) {
 }
 
 async function runEtl() {
+  console.log("======================================");
+  console.log("ETL START REQUEST RECEIVED");
+  console.log("Creating database import run...");
+  console.log("======================================");
   const importRunId = await startImportRun(
     "Full ETL import from downloaded raw files"
   );
@@ -193,15 +230,12 @@ async function runEtl() {
 
     const dataFolder = path.join(__dirname, "../../data");
 
-    const gvisysFile = path.join(
-      dataFolder,
-      "downloads",
-      "31122024_Auszug_GV.xlsx"
-    );
-
     const extractedFolder = path.join(dataFolder, "extracted");
+    const gvisysDataset = await findLatestGVISysFile(dataFolder);
+    const gvisysFile = gvisysDataset.filePath;
 
     console.log("Reading GV-ISys Excel file...");
+    console.log("Using GV-ISys file:", gvisysDataset.fileName);
     const gvisysRows = parseGVISysExcel(gvisysFile);
 
     console.log("GV-ISys raw row count:", gvisysRows.length);
@@ -226,7 +260,14 @@ async function runEtl() {
       );
     }
 
-    await insertRegions(regions);
+    const gvisysSourceFileId = await saveSourceFile(
+      importRunId,
+      gvisysFile,
+      "GV-ISys",
+      gvisysDataset.datasetYear
+    );
+
+    await insertRegions(regions, gvisysSourceFileId);
     await updateRegionParents();
 
     const regionMap = await getRegionMap();
