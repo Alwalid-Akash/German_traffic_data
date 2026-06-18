@@ -159,6 +159,7 @@ Normalized fields:
 
 The API answer workflow is documented in:
 
+- `docs/08_beginner_guide.md`
 - `docs/07_answer_justifications.md`
 - `docs/04_required_questions_api.md`
 - `docs/06_accidentinfoapi_api_docs.md`

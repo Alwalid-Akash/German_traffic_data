@@ -1,46 +1,60 @@
 # AccidentInfoAPI Frontend
 
-This is a simple React + Bootstrap client for AccidentInfoAPI.
+This is a React + Bootstrap client for `AccidentInfoAPI`.
 
-The frontend is component based and API driven. It does not keep its own hardcoded answer list. Question definitions come from:
+The frontend does not read the database. It only talks to the backend API.
 
-`GET /accidentinfoapi/question-catalog`
+## What React does here
 
-## Pages
+React builds the page from small components:
 
-- Query
-- Schema
-- Docs
+- `App.jsx` loads backend metadata and switches between tabs.
+- `QuestionConsole.jsx` shows a question form and sends API requests.
+- `SchemaExplorer.jsx` explains which tables answer which questions.
 
-## Components
-
-- `App.jsx`: loads backend metadata and controls the active page.
-- `components/QuestionConsole.jsx`: renders the dynamic question form from the API catalog.
-- `components/SchemaExplorer.jsx`: explains which database tables answer which questions.
-- `components/DocsPanel.jsx`: shows API and licensing notes.
-
-## Data flow
+## How the app works
 
 ```mermaid
 flowchart LR
-  A[User input] --> B[React form]
-  B --> C[/accidentinfoapi]
-  C --> D[(PostgreSQL)]
+  User[User] --> UI[React component]
+  UI --> API[/AccidentInfoAPI/]
+  API --> DB[(PostgreSQL)]
+  DB --> API
+  API --> UI
+  UI --> User
 ```
+
+## Beginner flow
+
+1. The page opens in the browser.
+2. `App.jsx` asks the backend for the question catalog and region list.
+3. The home page shows source and licence notes.
+4. `QuestionConsole.jsx` renders a simple form from that catalog.
+5. The user fills in a year, state, or region.
+6. React sends a `GET` request to the API.
+7. The API returns JSON.
+8. React shows the answer in a readable format, with raw JSON available only when needed.
+
+## Main files
+
+- [`src/App.jsx`](./src/App.jsx)
+- [`src/api.js`](./src/api.js)
+- [`src/components/QuestionConsole.jsx`](./src/components/QuestionConsole.jsx)
+- [`src/components/SchemaExplorer.jsx`](./src/components/SchemaExplorer.jsx)
 
 ## Data licences
 
-The app displays only data coming from official public sources. Licence and reuse terms are governed by the original source portals:
+The app only presents data from official public sources. The source licences and reuse terms stay with the original providers:
 
 - Unfallatlas / OpenGeodata NRW
 - Regionalatlas / Statistikportal
 - GV-ISys / Destatis
 
-## Run
+## Run locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-The frontend proxies API requests to `http://localhost:3000`.
+By default the frontend expects the backend at `http://localhost:3000`.

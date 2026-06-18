@@ -2,13 +2,20 @@ import { useEffect, useState } from "react";
 import { api } from "./api";
 import QuestionConsole from "./components/QuestionConsole";
 import SchemaExplorer from "./components/SchemaExplorer";
-import DocsPanel from "./components/DocsPanel";
 
 const TABS = [
   { id: "query", label: "Query" },
   { id: "schema", label: "Schema" },
-  { id: "docs", label: "Docs" },
 ];
+
+function DataLicensePanel() {
+  return (
+    <div className="source-note mb-4">
+      <strong>Data sources and licences:</strong>{" "}
+      Official public data from Unfallatlas, GV-ISys / Destatis, and Regionalatlas. Reuse and licence terms follow the original providers.
+    </div>
+  );
+}
 
 export default function App() {
   const [tab, setTab] = useState("query");
@@ -17,20 +24,18 @@ export default function App() {
   const [options, setOptions] = useState(null);
   const [coverage, setCoverage] = useState(null);
   const [schemaMap, setSchemaMap] = useState(null);
-  const [openapi, setOpenapi] = useState(null);
   const [status, setStatus] = useState("loading");
 
   useEffect(() => {
     async function load() {
       try {
-        const [catalogResponse, optionsResponse, statesResponse, coverageResponse, schemaResponse, openapiResponse] =
+        const [catalogResponse, optionsResponse, statesResponse, coverageResponse, schemaResponse] =
           await Promise.all([
             api.questionCatalog(),
             api.options(),
             api.states(),
             api.coverage(),
             api.schemaMap(),
-            api.openapi(),
           ]);
 
         setCatalog(catalogResponse.questions || []);
@@ -38,7 +43,6 @@ export default function App() {
         setStates(statesResponse.data || statesResponse || []);
         setCoverage(coverageResponse.coverage || coverageResponse);
         setSchemaMap(schemaResponse);
-        setOpenapi(openapiResponse);
         setStatus("ready");
       } catch (err) {
         setStatus("error");
@@ -84,9 +88,13 @@ export default function App() {
           </div>
         ) : null}
 
-        {tab === "query" ? <QuestionConsole catalog={catalog} stateOptions={states} options={options} /> : null}
+        {tab === "query" ? (
+          <>
+            <DataLicensePanel />
+            <QuestionConsole catalog={catalog} stateOptions={states} options={options} />
+          </>
+        ) : null}
         {tab === "schema" ? <SchemaExplorer schemaMap={schemaMap} coverage={coverage} /> : null}
-        {tab === "docs" ? <DocsPanel openapi={openapi} /> : null}
       </main>
     </div>
   );

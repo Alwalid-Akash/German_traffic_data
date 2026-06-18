@@ -1,9 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../api";
+
+const CATEGORY_LABELS = {
+  1: "Fatal injury accident",
+  2: "Serious injury accident",
+  3: "Minor injury accident",
+};
+
+const TYPE_LABELS = {
+  1: "Driving accident",
+  2: "Turning accident",
+  3: "Crossing accident",
+  4: "Pedestrian crossing accident",
+  5: "Stationary traffic accident",
+  6: "Longitudinal traffic accident",
+  7: "Other accident",
+};
 
 function buildInitialValues(fields) {
   return fields.reduce((acc, field) => {
-    acc[field.key] = field.defaultValue ?? (field.type === "checkbox" ? false : "");
+    acc[field.key] = field.defaultValue ?? "";
     return acc;
   }, {});
 }
@@ -16,7 +31,7 @@ function buildQueryParams(fields, values, fixedParams = {}) {
   fields.forEach((field) => {
     const value = values[field.key];
     if (field.type === "checkbox") {
-      if (value) params.set(field.key, "true");
+      if (value === "true") params.set(field.key, "true");
       return;
     }
     if (value !== "" && value !== null && value !== undefined) {
@@ -26,11 +41,17 @@ function buildQueryParams(fields, values, fixedParams = {}) {
   return params.toString();
 }
 
-function optionLabel(value) {
+function optionLabel(fieldType, value) {
+  if (fieldType === "category-select") {
+    return CATEGORY_LABELS[value] ? `${CATEGORY_LABELS[value]} (${value})` : String(value);
+  }
+  if (fieldType === "type-select") {
+    return TYPE_LABELS[value] ? `${TYPE_LABELS[value]} (${value})` : String(value);
+  }
   return String(value);
 }
 
-function SelectField({ field, value, onChange, options }) {
+function SelectField({ field, value, onChange, options, stateOptions }) {
   const lookup = {
     "year-select": options?.years || [],
     "month-select": options?.months || [],
@@ -51,10 +72,11 @@ function SelectField({ field, value, onChange, options }) {
   }
 
   if (field.type === "state-select") {
+    const states = options?.states?.length ? options.states : stateOptions || [];
     return (
       <select className="form-select" value={value || ""} onChange={(event) => onChange(event.target.value)} required={field.required}>
         <option value="">Select state</option>
-        {(options?.states || []).map((state) => (
+        {states.map((state) => (
           <option key={state.ags} value={state.ags}>{state.ags} - {state.name}</option>
         ))}
       </select>
@@ -62,24 +84,21 @@ function SelectField({ field, value, onChange, options }) {
   }
 
   if (field.type === "region-select") {
+    const regions = options?.regions || [];
     return (
-      <>
-        <input
-          className="form-control"
-          list="available-regions"
-          value={value || ""}
-          required={field.required}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder="Start typing a region name"
-        />
-        <datalist id="available-regions">
-          {(options?.regions || []).map((region) => (
-            <option key={`${region.level}-${region.ags}`} value={region.name}>
-              {region.ags} - {region.level}
-            </option>
-          ))}
-        </datalist>
-      </>
+      <select
+        className="form-select"
+        value={value || ""}
+        required={field.required}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="">Select region</option>
+        {regions.map((region) => (
+          <option key={`${region.level}-${region.ags}`} value={region.name}>
+            {region.name} ({region.level})
+          </option>
+        ))}
+      </select>
     );
   }
 
@@ -89,7 +108,7 @@ function SelectField({ field, value, onChange, options }) {
       <select className="form-select" value={value || ""} onChange={(event) => onChange(event.target.value)} required={field.required}>
         <option value="">Select {field.label.toLowerCase()}</option>
         {values.map((item) => (
-          <option key={item} value={item}>{optionLabel(item)}</option>
+          <option key={item} value={item}>{optionLabel(field.type, item)}</option>
         ))}
       </select>
     );
@@ -98,7 +117,101 @@ function SelectField({ field, value, onChange, options }) {
   return null;
 }
 
-export default function QuestionConsole({ catalog, options }) {
+function formatCellValue(value) {
+  if (value === null || value === undefined || value === "") {
+    return "No data";
+  }
+  return String(value);
+}
+
+function ResponseFrame({ result, selectedQuestion }) {
+  if (!result) {
+    return <div className="result-empty">Run a question to see the answer here.</div>;
+  }
+
+  if (result.data?.answer !== undefined) {
+    return (
+      <div className="response-frame">
+        <div className="response-head">
+          <div>
+            <h3 className="h6 mb-1">Answer</h3>
+            <p className="text-muted small mb-0">{selectedQuestion?.description}</p>
+          </div>
+          <span className="badge text-bg-light">{selectedQuestion?.answerShape || "single_value"}</span>
+        </div>
+        <div className="response-card">
+          <div className="response-label">Result</div>
+          <div className="answer-number">{formatCellValue(result.data.answer)}</div>
+          <div className="text-muted small">Answer calculated by the API from the database.</div>
+        </div>
+        <details className="response-details mt-3">
+          <summary className="small text-muted">Show filters and raw response</summary>
+          <pre className="result-box mt-2 mb-0">{JSON.stringify(result, null, 2)}</pre>
+        </details>
+      </div>
+    );
+  }
+
+  if (Array.isArray(result.data)) {
+    const rows = result.data;
+    const columns = rows.length ? Object.keys(rows[0]) : [];
+    return (
+      <div className="response-frame">
+        <div className="response-head">
+          <div>
+            <h3 className="h6 mb-1">Answer</h3>
+            <p className="text-muted small mb-0">{selectedQuestion?.description}</p>
+          </div>
+          <span className="badge text-bg-light">{selectedQuestion?.answerShape || "table"}</span>
+        </div>
+        <div className="table-responsive response-table-wrap">
+          {rows.length ? (
+              <table className="table table-sm table-bordered table-striped table-hover align-middle mb-0">
+                <thead>
+                  <tr>
+                    {columns.map((column) => (
+                      <th key={column} scope="col">
+                        {column}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, index) => (
+                    <tr key={index}>
+                      {columns.map((column) => (
+                        <td key={column}>{formatCellValue(row[column])}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+          ) : (
+            <div className="result-empty">No matching rows found.</div>
+          )}
+        </div>
+        <details className="response-details mt-3">
+          <summary className="small text-muted">Show raw API response</summary>
+          <pre className="result-box mt-2 mb-0">{JSON.stringify(result, null, 2)}</pre>
+        </details>
+      </div>
+    );
+  }
+
+  return (
+    <div className="response-frame">
+      <div className="response-head">
+        <div>
+          <h3 className="h6 mb-1">Answer</h3>
+          <p className="text-muted small mb-0">{selectedQuestion?.description}</p>
+        </div>
+      </div>
+      <pre className="result-box mb-0">{JSON.stringify(result, null, 2)}</pre>
+    </div>
+  );
+}
+
+export default function QuestionConsole({ catalog, options, stateOptions }) {
   const [selectedId, setSelectedId] = useState("");
   const selectedQuestion = useMemo(
     () => catalog.find((question) => question.id === selectedId) || catalog[0] || null,
@@ -187,23 +300,20 @@ export default function QuestionConsole({ catalog, options }) {
               <div className="mb-3" key={field.key}>
                 <label className="form-label">{field.label}</label>
                 {field.type === "checkbox" ? (
-                  <div className="form-check">
-                    <input
-                      id={field.key}
-                      className="form-check-input"
-                      type="checkbox"
-                      checked={Boolean(form[field.key])}
-                      onChange={(event) => updateField(field.key, event.target.checked)}
-                    />
-                    <label className="form-check-label" htmlFor={field.key}>
-                      Enable
-                    </label>
-                  </div>
+                  <select
+                    className="form-select"
+                    value={form[field.key] || ""}
+                    onChange={(event) => updateField(field.key, event.target.value)}
+                  >
+                    <option value="">Any</option>
+                    <option value="true">Yes</option>
+                  </select>
                 ) : field.type.endsWith("-select") ? (
                   <SelectField
                     field={field}
                     value={form[field.key]}
                     options={options}
+                    stateOptions={stateOptions}
                     onChange={(value) => updateField(field.key, value)}
                   />
                 ) : (
@@ -241,9 +351,7 @@ export default function QuestionConsole({ catalog, options }) {
           {error ? (
             <pre className="result-box text-danger mb-0">{error}</pre>
           ) : (
-            <pre className="result-box mb-0">
-              {result ? JSON.stringify(result, null, 2) : "Run a question to see the answer here."}
-            </pre>
+            <ResponseFrame result={result} selectedQuestion={selectedQuestion} />
           )}
         </div>
 

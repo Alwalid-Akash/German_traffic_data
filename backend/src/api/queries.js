@@ -2,7 +2,7 @@ const db = require("../db/db");
 
 function validateYear(value, name = "year") {
   const year = Number(value);
-  if (!Number.isInteger(year) || year < 1900 || year > 2100) {
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) {
     const error = new Error(`Invalid ${name}.`);
     error.statusCode = 400;
     throw error;

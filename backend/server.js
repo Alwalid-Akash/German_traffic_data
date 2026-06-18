@@ -1,6 +1,6 @@
 const express = require("express");
 
-const { downloadAllSources } = require("./src/etl/extractors/finaldownload");
+const { downloadAllSources } = require("./src/etl/extractors/downloadhelper");
 const { runEtl } = require("./src/etl/runetl");
 const accidentInfoApi = require("./src/api/routes");
 
