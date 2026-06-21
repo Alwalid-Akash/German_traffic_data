@@ -1,4 +1,4 @@
-export default function SchemaExplorer({ schemaMap, coverage }) {
+export default function SchemaExplorer({ schemaMap }) {
   return (
     <div className="row g-4">
       <div className="col-xl-8">
@@ -41,13 +41,6 @@ export default function SchemaExplorer({ schemaMap, coverage }) {
             <li><strong>indicators</strong> and <strong>indicator_values</strong>: Regionalatlas statistics and rates.</li>
             <li><strong>import_runs</strong> and <strong>source_files</strong>: provenance and reproducibility.</li>
           </ul>
-        </div>
-
-        <div className="panel">
-          <div className="panel-header">
-            <h2 className="h6 mb-1">Coverage</h2>
-          </div>
-          <pre className="result-box mb-0">{coverage ? JSON.stringify(coverage, null, 2) : "Loading..."}</pre>
         </div>
       </div>
     </div>

@@ -9,7 +9,6 @@ const {
   availableFrom,
   passengerCarRate,
   topFatalDistricts,
-  bicycleAccidentsInDresden,
   zeroAccidentMunicipalities,
   validateYear,
   validateInteger,
@@ -89,68 +88,6 @@ router.get("/answers/earliest-accident-year", asyncRoute(async (req, res) => {
   });
 }));
 
-router.get("/answers/required-summary", asyncRoute(async (req, res) => {
-  const personalInjuryYear = req.query.personalInjuryYear || 2023;
-  const personalInjuryState = req.query.personalInjuryState || "14";
-  const pedestrianYear = req.query.pedestrianYear || 2023;
-  const pedestrianState = req.query.pedestrianState || "11";
-  const rateYear = req.query.rateYear || 2023;
-  const fatalYear = req.query.fatalYear || 2024;
-  const bicycleYear = req.query.bicycleYear || 2024;
-  const bicycleRegion = req.query.bicycleRegion || "Dresden";
-  const zeroYear = req.query.zeroYear || 2023;
-  const zeroState = req.query.zeroState || "14";
-  const firstState = req.query.firstState || "05";
-  const secondState = req.query.secondState || "13";
-
-  res.json({
-    api: "accidentinfoapi",
-    question: "Required analytical questions summary.",
-    parameters: {
-      personalInjuryYear,
-      personalInjuryState,
-      pedestrianYear,
-      pedestrianState,
-      rateYear,
-      fatalYear,
-      bicycleYear,
-      bicycleRegion,
-      zeroYear,
-      zeroState,
-      firstState,
-      secondState,
-    },
-    answers: {
-      earliestAccidentYear: await earliestAccidentYear(),
-      personalInjuryAccidents: await countAccidents({
-        year: personalInjuryYear,
-        stateAgs: personalInjuryState,
-        personalInjury: "true",
-      }),
-      firstStateAvailableFrom: await availableFrom(firstState),
-      secondStateAvailableFrom: await availableFrom(secondState),
-      pedestrianAccidents: await countAccidents({
-        year: pedestrianYear,
-        stateAgs: pedestrianState,
-        pedestrian: "true",
-      }),
-      passengerCarRate: await passengerCarRate({ year: rateYear, limit: 5 }),
-      topFatalDistricts: await topFatalDistricts(fatalYear, 5),
-      bicycleAccidents: await countAccidents({
-        year: bicycleYear,
-        regionName: bicycleRegion,
-        bicycle: "true",
-      }),
-      zeroAccidentMunicipalities: await zeroAccidentMunicipalities(zeroState, zeroYear),
-    },
-    explanation: {
-      singleSource: "Counts use Unfallatlas accidents joined to GV-ISys regions through regions.region_id and official AGS codes.",
-      crossSource: "Passenger-car rate uses Unfallatlas accident counts plus Regionalatlas passenger-car stock from indicator_values.",
-      zeroCase: "Zero-case analysis starts from the full GV-ISys municipality list and left joins accidents.",
-    },
-  });
-}));
-
 router.get("/answers/available-from", asyncRoute(async (req, res) => {
   const stateAgs = String(req.query.stateAgs || "").trim();
   if (!stateAgs) {
@@ -191,19 +128,6 @@ router.get("/answers/top-fatal-districts", asyncRoute(async (req, res) => {
     api: "accidentinfoapi",
     question: "Top districts with highest fatal accidents.",
     data: await topFatalDistricts(year, limit),
-  });
-}));
-
-router.get("/answers/bicycle-dresden", asyncRoute(async (req, res) => {
-  const year = validateYear(req.query.year);
-
-  res.json({
-    api: "accidentinfoapi",
-    question: "Bicycle accidents in Dresden.",
-    data: {
-      year,
-      answer: await bicycleAccidentsInDresden(year),
-    },
   });
 }));
 

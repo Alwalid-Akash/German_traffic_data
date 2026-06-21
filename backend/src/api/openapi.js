@@ -4,7 +4,7 @@ function buildOpenApiSpec(baseUrl = "http://localhost:3000") {
     info: {
       title: "AccidentInfoAPI",
       version: "1.0.0",
-      description: "Beginner-friendly API for German traffic accident analytics and provenance-aware regional statistics.",
+      description: "API for German traffic accident analytics and provenance-aware regional statistics.",
     },
     servers: [{ url: baseUrl }],
     paths: {
@@ -58,12 +58,6 @@ function buildOpenApiSpec(baseUrl = "http://localhost:3000") {
       "/accidentinfoapi/answers/earliest-accident-year": {
         get: { summary: "Earliest accident year", responses: { 200: { description: "Answer" } } },
       },
-      "/accidentinfoapi/answers/required-summary": {
-        get: {
-          summary: "All required analytical questions with editable defaults",
-          responses: { 200: { description: "Required question answers" } },
-        },
-      },
       "/accidentinfoapi/answers/count": {
         get: {
           summary: "Count accidents with filters",
@@ -76,8 +70,6 @@ function buildOpenApiSpec(baseUrl = "http://localhost:3000") {
             { name: "category", in: "query", schema: { type: "string" } },
             { name: "type", in: "query", schema: { type: "string" } },
             { name: "month", in: "query", schema: { type: "integer", minimum: 1, maximum: 12 } },
-            { name: "weekday", in: "query", schema: { type: "integer", minimum: 1, maximum: 7 } },
-            { name: "hour", in: "query", schema: { type: "integer", minimum: 0, maximum: 23 } },
             { name: "ags", in: "query", schema: { type: "string" } },
             { name: "personalInjury", in: "query", schema: { type: "boolean" } },
             { name: "pedestrian", in: "query", schema: { type: "boolean" } },
@@ -116,13 +108,6 @@ function buildOpenApiSpec(baseUrl = "http://localhost:3000") {
             { name: "limit", in: "query", schema: { type: "integer" } },
           ],
           responses: { 200: { description: "Ranked results" } },
-        },
-      },
-      "/accidentinfoapi/answers/bicycle-dresden": {
-        get: {
-          summary: "Bicycle accidents in Dresden",
-          parameters: [{ name: "year", in: "query", required: true, schema: { type: "integer" } }],
-          responses: { 200: { description: "Count result" } },
         },
       },
       "/accidentinfoapi/answers/zero-accident-municipalities": {

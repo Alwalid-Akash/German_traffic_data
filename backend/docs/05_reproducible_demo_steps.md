@@ -60,5 +60,13 @@ The justification for every answer is documented in `docs/07_answer_justificatio
 Run:
 
 ```bash
-curl "http://localhost:3000/accidentinfoapi/answers/required-summary"
+curl "http://localhost:3000/accidentinfoapi/answers/earliest-accident-year"
+curl "http://localhost:3000/accidentinfoapi/answers/count?year=2023&stateAgs=14&personalInjury=true"
+curl "http://localhost:3000/accidentinfoapi/answers/available-from?stateAgs=05"
+curl "http://localhost:3000/accidentinfoapi/answers/available-from?stateAgs=13"
+curl "http://localhost:3000/accidentinfoapi/answers/count?year=2023&stateAgs=11&pedestrian=true"
+curl "http://localhost:3000/accidentinfoapi/answers/passenger-car-rate?year=2023&limit=5"
+curl "http://localhost:3000/accidentinfoapi/answers/top-fatal-districts?year=2024&limit=5"
+curl "http://localhost:3000/accidentinfoapi/answers/count?year=2024&regionName=Dresden&bicycle=true"
+curl "http://localhost:3000/accidentinfoapi/answers/zero-accident-municipalities?stateAgs=14&year=2023"
 ```

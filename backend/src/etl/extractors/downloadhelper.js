@@ -1,4 +1,4 @@
-const Downloader = require("../../../downloader");
+const Downloader = require("./downloader");
 
 const Unfallatlas = require("./core/unfallatlas");
 const GVISys = require("./core/gvisys");

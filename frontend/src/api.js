@@ -37,7 +37,6 @@ export const api = {
     const query = new URLSearchParams(params).toString();
     return request(`/accidentinfoapi/answers/top-fatal-districts?${query}`);
   },
-  bicycleDresden: (year) => request(`/accidentinfoapi/answers/bicycle-dresden?year=${encodeURIComponent(year)}`),
   zeroAccidentMunicipalities: (params) => {
     const query = new URLSearchParams(params).toString();
     return request(`/accidentinfoapi/answers/zero-accident-municipalities?${query}`);

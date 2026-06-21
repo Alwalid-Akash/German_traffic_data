@@ -114,20 +114,9 @@ So the result is transparent about which years were actually combined.
 | Data resource | GV-ISys + Unfallatlas |
 | Explanation | This is a zero-case analysis. The query starts with the full municipality list from GV-ISys and left-joins accidents. Any municipality with no joined accident row in 2023 is a zero-case municipality. |
 
-## 10. Required summary endpoint
-
-The API also provides one combined endpoint:
-
-```text
-GET /accidentinfoapi/answers/required-summary
-```
-
-This returns all required answers in one response and keeps the defaults editable.
-
 ## Why this is reproducible
 
 - answers come from normalized tables, not from fixed text;
 - official region keys are stored in `regions.ags`;
 - source files and ETL runs are stored in `source_files` and `import_runs`;
 - cross-source answers show the source periods used.
-

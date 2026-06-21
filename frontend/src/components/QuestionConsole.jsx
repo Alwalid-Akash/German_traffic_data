@@ -55,21 +55,9 @@ function SelectField({ field, value, onChange, options, stateOptions }) {
   const lookup = {
     "year-select": options?.years || [],
     "month-select": options?.months || [],
-    "hour-select": options?.hours || [],
     "category-select": options?.categories || [],
     "type-select": options?.types || [],
   };
-
-  if (field.type === "weekday-select") {
-    return (
-      <select className="form-select" value={value || ""} onChange={(event) => onChange(event.target.value)} required={field.required}>
-        <option value="">Select weekday</option>
-        {(options?.weekdays || []).map((item) => (
-          <option key={item.value} value={item.value}>{item.label}</option>
-        ))}
-      </select>
-    );
-  }
 
   if (field.type === "state-select") {
     const states = options?.states?.length ? options.states : stateOptions || [];
@@ -137,7 +125,6 @@ function ResponseFrame({ result, selectedQuestion }) {
             <h3 className="h6 mb-1">Answer</h3>
             <p className="text-muted small mb-0">{selectedQuestion?.description}</p>
           </div>
-          <span className="badge text-bg-light">{selectedQuestion?.answerShape || "single_value"}</span>
         </div>
         <div className="response-card">
           <div className="response-label">Result</div>
@@ -162,7 +149,6 @@ function ResponseFrame({ result, selectedQuestion }) {
             <h3 className="h6 mb-1">Answer</h3>
             <p className="text-muted small mb-0">{selectedQuestion?.description}</p>
           </div>
-          <span className="badge text-bg-light">{selectedQuestion?.answerShape || "table"}</span>
         </div>
         <div className="table-responsive response-table-wrap">
           {rows.length ? (
@@ -344,7 +330,6 @@ export default function QuestionConsole({ catalog, options, stateOptions }) {
           <div className="panel-header d-flex align-items-center justify-content-between">
             <div>
               <h2 className="h6 mb-1">Response</h2>
-              <p className="text-muted small mb-0">Live data from the API, not hardcoded text.</p>
             </div>
             <span className="badge text-bg-light">{selectedQuestion.answerShape}</span>
           </div>

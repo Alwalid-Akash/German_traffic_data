@@ -74,19 +74,6 @@ const QUESTION_CATALOG = [
     answerShape: "table",
   },
   {
-    id: "bicycle-by-region",
-    title: "Bicycle accidents by region and year",
-    description: "Answers the Dresden 2024 bicycle question, but the region and year are editable.",
-    endpoint: "/accidentinfoapi/answers/count",
-    method: "GET",
-    fields: [
-      { key: "year", label: "Year", type: "year-select", required: true, defaultValue: 2024 },
-      { key: "regionName", label: "Region", type: "region-select", required: true, defaultValue: "Dresden" },
-    ],
-    fixedParams: { bicycle: "true" },
-    answerShape: "count",
-  },
-  {
     id: "zero-accident-municipalities",
     title: "Municipalities with zero accidents",
     description: "Answers the Saxony 2023 zero-case question, but state and year are editable.",
@@ -108,7 +95,7 @@ const QUESTION_CATALOG = [
     fields: [
       { key: "year", label: "Year", type: "year-select", required: true, defaultValue: 2023 },
       { key: "stateAgs", label: "Federal state", type: "state-select" },
-      { key: "regionName", label: "Region name", type: "region-select" },
+      { key: "regionName", label: "Region name", type: "text", hint: "Example: Dresden, Berlin, Leipzig" },
       { key: "personalInjury", label: "Personal injury", type: "checkbox" },
       { key: "pedestrian", label: "Pedestrian", type: "checkbox" },
       { key: "bicycle", label: "Bicycle", type: "checkbox" },

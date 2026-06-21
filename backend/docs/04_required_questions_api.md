@@ -3,31 +3,6 @@
 The required answers are produced by the API, not by a separate answer SQL file.
 No answer values are hardcoded in the frontend.
 
-## Main Endpoint
-
-Use this endpoint to answer all required demo questions at once:
-
-```text
-GET /accidentinfoapi/answers/required-summary
-```
-
-All important defaults can be changed with query parameters:
-
-| Parameter | Default | Meaning |
-| --- | --- | --- |
-| `personalInjuryYear` | `2023` | year for personal injury count |
-| `personalInjuryState` | `14` | state AGS for personal injury count |
-| `firstState` | `05` | state AGS for first availability question |
-| `secondState` | `13` | state AGS for second availability question |
-| `pedestrianYear` | `2023` | year for pedestrian count |
-| `pedestrianState` | `11` | state AGS for pedestrian count |
-| `rateYear` | `2023` | accident year for passenger-car rate |
-| `fatalYear` | `2024` | year for fatal ranking |
-| `bicycleYear` | `2024` | year for bicycle count |
-| `bicycleRegion` | `Dresden` | region name for bicycle count |
-| `zeroYear` | `2023` | year for zero-case analysis |
-| `zeroState` | `14` | state AGS for zero-case analysis |
-
 ## Individual Endpoints
 
 | Question | Endpoint | Tables |
@@ -40,6 +15,20 @@ All important defaults can be changed with query parameters:
 | Top fatal districts | `/answers/top-fatal-districts` | `accidents`, `regions` |
 | Bicycle accidents by region/year | `/answers/count` | `accidents`, `regions` |
 | Zero-accident municipalities | `/answers/zero-accident-municipalities` | `regions`, `accidents` |
+
+## Example Calls
+
+```text
+GET /accidentinfoapi/answers/earliest-accident-year
+GET /accidentinfoapi/answers/count?year=2023&stateAgs=14&personalInjury=true
+GET /accidentinfoapi/answers/available-from?stateAgs=05
+GET /accidentinfoapi/answers/available-from?stateAgs=13
+GET /accidentinfoapi/answers/count?year=2023&stateAgs=11&pedestrian=true
+GET /accidentinfoapi/answers/passenger-car-rate?year=2023&limit=5
+GET /accidentinfoapi/answers/top-fatal-districts?year=2024&limit=5
+GET /accidentinfoapi/answers/count?year=2024&regionName=Dresden&bicycle=true
+GET /accidentinfoapi/answers/zero-accident-municipalities?stateAgs=14&year=2023
+```
 
 ## Dropdown Metadata
 
@@ -58,4 +47,3 @@ This returns years, months, weekdays, hours, categories, accident types, federal
 - The zero-case question starts from all GV-ISys municipalities and left joins accidents, so municipalities with no accidents can be found.
 - The passenger-car rate is a cross-source question because it combines Unfallatlas accident counts with Regionalatlas passenger-car stock from `indicator_values`.
 - The API exposes source years in cross-source results, for example `accident_year` and `passenger_car_year`, because official sources may use different reporting periods.
-

@@ -80,16 +80,6 @@ async function getFilterOptions() {
   return {
     years: years.rows.map((row) => row.year),
     months: Array.from({ length: 12 }, (_, index) => index + 1),
-    weekdays: [
-      { value: 1, label: "1 - Monday" },
-      { value: 2, label: "2 - Tuesday" },
-      { value: 3, label: "3 - Wednesday" },
-      { value: 4, label: "4 - Thursday" },
-      { value: 5, label: "5 - Friday" },
-      { value: 6, label: "6 - Saturday" },
-      { value: 7, label: "7 - Sunday" },
-    ],
-    hours: Array.from({ length: 24 }, (_, index) => index),
     categories: categories.rows.map((row) => row.category),
     types: types.rows.map((row) => row.type),
     states: states.rows,
@@ -151,8 +141,6 @@ async function earliestAccidentYear() {
 async function countAccidents(params) {
   const year = validateYear(params.year);
   const month = params.month === undefined || params.month === "" ? null : validateInteger(params.month, "month", 1, 12);
-  const weekday = params.weekday === undefined || params.weekday === "" ? null : validateInteger(params.weekday, "weekday", 1, 7);
-  const hour = params.hour === undefined || params.hour === "" ? null : validateInteger(params.hour, "hour", 0, 23);
   const ags = normalizeText(params.ags);
   const stateAgs = normalizeText(params.stateAgs);
   const municipality = normalizeText(params.municipality);
@@ -171,14 +159,6 @@ async function countAccidents(params) {
   if (month !== null) {
     args.push(month);
     where.push(`a.month = $${args.length}`);
-  }
-  if (weekday !== null) {
-    args.push(weekday);
-    where.push(`a.weekday = $${args.length}`);
-  }
-  if (hour !== null) {
-    args.push(hour);
-    where.push(`a.hour = $${args.length}`);
   }
   if (personalInjury) where.push("a.is_personal_injury = TRUE");
   if (pedestrian) where.push("a.is_pedestrian = TRUE");
@@ -236,8 +216,6 @@ async function countAccidents(params) {
       district: district || null,
       regionName: regionName || null,
       month,
-      weekday,
-      hour,
       category: category || null,
       type: accidentType || null,
       personalInjury,
@@ -345,24 +323,6 @@ async function topFatalDistricts(year, limit = 5) {
   return result.rows;
 }
 
-async function bicycleAccidentsInDresden(year) {
-  const accidentYear = validateYear(year);
-  const result = await db.query(
-    `
-    SELECT COUNT(*) AS answer
-    FROM accidents a
-    JOIN regions r ON r.region_id = a.region_id
-    LEFT JOIN regions parent ON parent.region_id = r.parent_region_id
-    WHERE a.year = $1
-      AND a.is_bicycle = TRUE
-      AND (r.name ILIKE '%Dresden%' OR parent.name ILIKE '%Dresden%')
-    `,
-    [accidentYear]
-  );
-
-  return Number(result.rows[0].answer || 0);
-}
-
 async function zeroAccidentMunicipalities(stateAgs, year) {
   const accidentYear = validateYear(year);
   const ags = normalizeText(stateAgs);
@@ -397,7 +357,6 @@ module.exports = {
   availableFrom,
   passengerCarRate,
   topFatalDistricts,
-  bicycleAccidentsInDresden,
   zeroAccidentMunicipalities,
   validateYear,
   validateInteger,

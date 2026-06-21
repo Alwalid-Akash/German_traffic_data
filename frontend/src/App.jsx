@@ -22,26 +22,23 @@ export default function App() {
   const [catalog, setCatalog] = useState([]);
   const [states, setStates] = useState([]);
   const [options, setOptions] = useState(null);
-  const [coverage, setCoverage] = useState(null);
   const [schemaMap, setSchemaMap] = useState(null);
   const [status, setStatus] = useState("loading");
 
   useEffect(() => {
     async function load() {
       try {
-        const [catalogResponse, optionsResponse, statesResponse, coverageResponse, schemaResponse] =
+        const [catalogResponse, optionsResponse, statesResponse, schemaResponse] =
           await Promise.all([
             api.questionCatalog(),
             api.options(),
             api.states(),
-            api.coverage(),
             api.schemaMap(),
           ]);
 
         setCatalog(catalogResponse.questions || []);
         setOptions(optionsResponse.options || {});
         setStates(statesResponse.data || statesResponse || []);
-        setCoverage(coverageResponse.coverage || coverageResponse);
         setSchemaMap(schemaResponse);
         setStatus("ready");
       } catch (err) {
@@ -94,7 +91,7 @@ export default function App() {
             <QuestionConsole catalog={catalog} stateOptions={states} options={options} />
           </>
         ) : null}
-        {tab === "schema" ? <SchemaExplorer schemaMap={schemaMap} coverage={coverage} /> : null}
+        {tab === "schema" ? <SchemaExplorer schemaMap={schemaMap} /> : null}
       </main>
     </div>
   );
