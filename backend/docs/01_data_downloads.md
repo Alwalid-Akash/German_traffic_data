@@ -11,6 +11,18 @@ npm run download
 
 The downloader stores raw files under `backend/data/downloads`, extracted Unfallatlas ZIP contents under `backend/data/extracted`, source metadata under `backend/data/metadata`, and a project manifest under `backend/data/manifest`.
 
+## Download Code Location
+
+The reproducible download step is implemented in the extractor layer:
+
+| File | Purpose |
+| --- | --- |
+| `backend/src/etl/extractors/downloadhelper.js` | Main download controller. It runs all source-specific extractors and creates the download manifest. |
+| `backend/src/etl/extractors/downloader.js` | Shared helper for downloading files, reusing cached files, extracting ZIP files, calculating SHA-256 checksums, and saving metadata. |
+| `backend/src/etl/extractors/core/unfallatlas.js` | Unfallatlas source-specific download logic. |
+| `backend/src/etl/extractors/core/gvisys.js` | GV-ISys source-specific download logic. |
+| `backend/src/etl/extractors/core/regionalatlas.js` | Regionalatlas source-specific download logic. |
+
 ## Core Analytical Datasets
 
 ### Unfallatlas
@@ -90,3 +102,14 @@ The project stores provenance in:
 - `import_runs`
 
 Stored metadata includes source system, source URL, file path, file name, dataset year/code where available, SHA-256 checksum, and import run ID.
+
+## Documentation vs Generated Artifacts
+
+The Markdown files in `backend/docs` are manually written project documentation for the assignment. They explain the data sources, ETL design, schema, API, and reproducibility workflow.
+
+Generated reproducibility artifacts are created by the code during download and ETL:
+
+- `backend/data/manifest/download_manifest.json`
+- `backend/data/metadata/*.json`
+- database rows in `source_files`
+- database rows in `import_runs`

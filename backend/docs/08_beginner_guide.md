@@ -101,6 +101,11 @@ ETL means:
 
 The downloader gets the source files from the official portals.
 
+The current download files are:
+
+- `src/etl/extractors/downloadhelper.js`: starts the reproducible download process.
+- `src/etl/extractors/downloader.js`: shared helper for download, cache, checksum, ZIP extraction, metadata, and manifest files.
+
 ### Parse
 
 The parser reads:
@@ -130,6 +135,17 @@ The aggregator builds totals and rates for analytics.
 ### Provenance
 
 The database also stores where the data came from and which import run created it.
+
+### Documentation note
+
+The files in `backend/docs` are manually written explanation files. They are not generated automatically by the ETL.
+
+The generated reproducibility outputs are:
+
+- download manifest JSON files;
+- source metadata JSON files;
+- `source_files` database rows;
+- `import_runs` database rows.
 
 ## 6. Main tables and what they mean
 

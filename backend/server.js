@@ -1,5 +1,6 @@
 const express = require("express");
-
+const swaggerUi = require("swagger-ui-express");  // ← ADD THIS
+const { buildOpenApiSpec } = require("./src/api/openapi");  // ← ADD THIS
 const { downloadAllSources } = require("./src/etl/extractors/downloadhelper");
 const { runEtl } = require("./src/etl/runetl");
 const accidentInfoApi = require("./src/api/routes");
@@ -24,6 +25,12 @@ app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}${suffix}`);
   next();
 });
+
+// ============ SWAGGER UI - ONLY ADDED THIS BLOCK ============
+const openApiSpec = buildOpenApiSpec(`http://localhost:${PORT}`);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
+app.get('/openapi.json', (req, res) => res.json(openApiSpec));
+// =============================================================
 
 app.use("/accidentinfoapi", accidentInfoApi);
 
@@ -156,7 +163,8 @@ app.listen(PORT, () => {
   console.log(`Run ETL: http://localhost:${PORT}/etl`);
   console.log(`Status: http://localhost:${PORT}/status`);
   console.log(`AccidentInfoAPI: http://localhost:${PORT}/accidentinfoapi/health`);
-  console.log(`OpenAPI: http://localhost:${PORT}/accidentinfoapi/openapi.json`);
+  console.log(` Swagger UI: http://localhost:${PORT}/api-docs`);  // ← ADD THIS
+  console.log(` OpenAPI JSON: http://localhost:${PORT}/openapi.json`);  // ← ADD THIS
 });
 
 app.use((req, res) => {

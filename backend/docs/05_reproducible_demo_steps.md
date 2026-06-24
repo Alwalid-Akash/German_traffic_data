@@ -22,6 +22,12 @@ This creates:
 - `data/metadata`
 - `data/manifest`
 
+To force a fresh download from the official sources, use:
+
+```bash
+npm run download:force
+```
+
 ## 3. Create Database Schema
 
 ```bash
@@ -49,6 +55,17 @@ Or run ETL directly:
 ```bash
 npm run etl
 ```
+
+## Script Meaning
+
+| Script | Meaning |
+| --- | --- |
+| `npm run init-db` | creates database tables from `pgsql/schemas.sql` |
+| `npm run download` | downloads official source files with cache reuse |
+| `npm run download:force` | downloads official source files again |
+| `npm run etl` | parses, transforms, loads, aggregates, and stores provenance |
+| `npm run dev` | starts the backend server |
+| `npm start` | starts the backend server with the standard start command |
 
 ## 6. Demonstrate Required Questions
 

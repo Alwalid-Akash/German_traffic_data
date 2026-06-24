@@ -37,6 +37,16 @@ Extraction includes:
 - GV-ISys Excel download into `data/downloads`.
 - Regionalatlas CSV download into `data/downloads`.
 
+Extractor files:
+
+| File | Role |
+| --- | --- |
+| `src/etl/extractors/downloadhelper.js` | runs all source downloaders |
+| `src/etl/extractors/downloader.js` | shared download/cache/checksum/ZIP helper |
+| `src/etl/extractors/core/unfallatlas.js` | Unfallatlas download logic |
+| `src/etl/extractors/core/gvisys.js` | GV-ISys download logic |
+| `src/etl/extractors/core/regionalatlas.js` | Regionalatlas download logic |
+
 ## Parse
 
 Parsers:
@@ -142,3 +152,14 @@ Implemented or supported checks:
 - foreign keys between accidents, regions, indicators, source files, and import runs.
 - validation in API query filters.
 - zero-case analysis using full GV-ISys municipality coverage.
+
+## Backend Scripts
+
+| Script | Purpose |
+| --- | --- |
+| `npm run init-db` | creates or refreshes the database schema |
+| `npm run download` | downloads source files and reuses cached files when possible |
+| `npm run download:force` | downloads source files again even if local copies already exist |
+| `npm run etl` | runs the ETL pipeline and loads normalized data into PostgreSQL |
+| `npm run dev` | starts the backend server for development |
+| `npm start` | starts the backend server using the standard start command |
