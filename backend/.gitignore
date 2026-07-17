@@ -44,8 +44,7 @@
 *.shx
 *.dbf
 *.prj
-*.geojson
-*.json
+
 
 # But keep directory structure (optional)
 !/data/.gitkeep
