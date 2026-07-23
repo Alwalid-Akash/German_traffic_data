@@ -1,6 +1,6 @@
 # 📊 ETL Data Hub – Full‑Stack Data Pipeline
 
-A beginner-friendly, full‑stack project that demonstrates **E**xtract, **T**ransform, **L**oad (ETL) from three public data sources into a PostgreSQL database, serves the data via a REST API, and displays it in a clean, responsive React dashboard.
+A  full‑stack project that demonstrates **E**xtract, **T**ransform, **L**oad (ETL) from three public data sources into a PostgreSQL database, serves the data via a REST API, and displays it in a clean, responsive React dashboard.
 ---
 
 ## 🚀 Features
