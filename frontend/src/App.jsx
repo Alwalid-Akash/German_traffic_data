@@ -1,21 +1,11 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
+import AboutPage from "./components/AboutPage";
+import AppHeader from "./components/AppHeader";
+import DataLicensePanel from "./components/DataLicensePanel";
+import LoadingMessage from "./components/LoadingMessage";
 import QuestionConsole from "./components/QuestionConsole";
 import SchemaExplorer from "./components/SchemaExplorer";
-
-const TABS = [
-  { id: "query", label: "Query" },
-  { id: "schema", label: "Schema" },
-];
-
-function DataLicensePanel() {
-  return (
-    <div className="source-note mb-4">
-      <strong>Data sources and licences:</strong>{" "}
-      Official public data from Unfallatlas, GV-ISys / Destatis, and Regionalatlas. Reuse and licence terms follow the original providers.
-    </div>
-  );
-}
 
 export default function App() {
   const [tab, setTab] = useState("query");
@@ -50,40 +40,11 @@ export default function App() {
   }, []);
 
   return (
-    <div className="app-shell">
-      <header className="topbar border-bottom bg-white">
-        <div className="container py-3">
-          <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
-            <div>
-              <h1 className="h4 mb-1">AccidentInfoAPI</h1>
-              <div className="text-muted small">
-                Dynamic regional accident answers from normalized tables
-              </div>
-            </div>
-            <div className="btn-group" role="tablist" aria-label="Main sections">
-              {TABS.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={`btn btn-sm ${tab === item.id ? "btn-dark" : "btn-outline-dark"}`}
-                  onClick={() => setTab(item.id)}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="min-vh-100 bg-light">
+      <AppHeader activeTab={tab} onTabChange={setTab} />
 
       <main className="container py-4">
-        {status === "loading" ? (
-          <div className="panel">Loading metadata...</div>
-        ) : status === "error" ? (
-          <div className="panel text-danger">
-            Could not load backend metadata. Check that the backend is running on port 3000.
-          </div>
-        ) : null}
+        <LoadingMessage status={status} />
 
         {tab === "query" ? (
           <>
@@ -92,6 +53,7 @@ export default function App() {
           </>
         ) : null}
         {tab === "schema" ? <SchemaExplorer schemaMap={schemaMap} /> : null}
+        {tab === "about" ? <AboutPage /> : null}
       </main>
     </div>
   );
