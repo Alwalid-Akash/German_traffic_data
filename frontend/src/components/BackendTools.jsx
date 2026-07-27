@@ -62,7 +62,7 @@ function SwaggerButton() {
   return (
     <a
       className="btn btn-outline-dark"
-      href={`${API_BASE}/api-docs`}
+      href={`${API_BASE}/api-docs/`}
       target="_blank"
       rel="noreferrer"
     >

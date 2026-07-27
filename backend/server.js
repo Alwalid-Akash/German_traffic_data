@@ -152,7 +152,7 @@ app.get(
         "https://german-traffic-data.vercel.app",
 
       documentation:
-        `${BASE_URL}/api-docs`,
+        `${BASE_URL}/api-docs/`,
 
       usefulRoutes: {
 
@@ -181,7 +181,7 @@ app.get(
           "/status",
 
         swagger:
-          "/api-docs"
+          "/api-docs/"
 
       }
 
@@ -259,7 +259,7 @@ app.get(
 
         status: "/status",
 
-        swagger: "/api-docs",
+        swagger: "/api-docs/",
 
         accidentInfoApi: "/accidentinfoapi/health"
 
@@ -681,7 +681,7 @@ app.listen(
 
 
     console.log(
-      `Swagger UI:          ${BASE_URL}/api-docs`
+      `Swagger UI:          ${BASE_URL}/api-docs/`
     );
 
 
