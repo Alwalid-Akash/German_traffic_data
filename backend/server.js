@@ -1,175 +1,396 @@
 const express = require("express");
-const swaggerUi = require("swagger-ui-express");  // ← ADD THIS
-const { buildOpenApiSpec } = require("./src/api/openapi");  // ← ADD THIS
+const cors = require("cors");
+const swaggerUi = require("swagger-ui-express");
+
+const { buildOpenApiSpec } = require("./src/api/openapi");
 const { downloadAllSources } = require("./src/etl/extractors/downloadhelper");
 const { runEtl } = require("./src/etl/runetl");
 const accidentInfoApi = require("./src/api/routes");
 
+
 const app = express();
+
 const PORT = process.env.PORT || 3000;
 
+
+// =======================
+// Middleware
+// =======================
+
 app.use(express.json());
+// CORS Configuration
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://german-traffic-data.vercel.app"
+    ],
+    methods: [
+      "GET",
+      "POST",
+      "OPTIONS"
+    ],
+    allowedHeaders: [
+      "Content-Type"
+    ]
+  })
+);
+// Request Logger
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
+
+  const query =
+    new URLSearchParams(req.query).toString();
+
+  const suffix =
+    query ? `?${query}` : "";
+
+
+  console.log(
+    `[${new Date().toISOString()}] ${req.method} ${req.path}${suffix}`
+  );
+
+  next();
+});
+
+// =======================
+// Swagger
+// =======================
+
+const BASE_URL =
+  process.env.BASE_URL ||
+  `http://localhost:${PORT}`;
+
+
+const openApiSpec =
+  buildOpenApiSpec(BASE_URL);
+
+app.use(
+  "/api-docs",
+  swaggerUi.serve,
+  swaggerUi.setup(openApiSpec)
+);
+
+app.get(
+  "/openapi.json",
+  (req, res) => {
+    res.json(openApiSpec);
   }
-  next();
-});
+);
 
-app.use((req, res, next) => {
-  const query = new URLSearchParams(req.query).toString();
-  const suffix = query ? `?${query}` : "";
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}${suffix}`);
-  next();
-});
 
-// ============ SWAGGER UI - ONLY ADDED THIS BLOCK ============
-const openApiSpec = buildOpenApiSpec(`http://localhost:${PORT}`);
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
-app.get('/openapi.json', (req, res) => res.json(openApiSpec));
-// =============================================================
+// =======================
+// API Routes
+// =======================
 
-app.use("/accidentinfoapi", accidentInfoApi);
+app.use(
+  "/accidentinfoapi",
+  accidentInfoApi
+);
+// =======================
+// ETL State
+// =======================
 
 let lastDownloadResult = null;
 let lastEtlResult = null;
 let etlRunning = false;
 
+
+
+// =======================
+// Basic Routes
+// =======================
+
 app.get("/", (req, res) => {
+
   res.json({
+
     project: "AccidentInfoAPI",
-    message: "Backend is running. Use /download, /etl, and /status for the reproducible pipeline.",
+
+    message:
+      "Backend is running",
+
     routes: {
+
       health: "/health",
+
       download: "/download",
+
       etl: "/etl",
+
       status: "/status",
-      api: "/accidentinfoapi/health"
+
+      api:
+        "/accidentinfoapi/health",
+
+      swagger:
+        "/api-docs"
+
     }
+
   });
+
 });
 
 app.get("/health", (req, res) => {
+
   res.json({
+
     status: "ok",
-    message: "Server is running."
+
+    message:
+      "Server is running."
+
   });
+
 });
 
+// =======================
+// Download Dataset
+// =======================
+
 app.get("/download", async (req, res) => {
+
   try {
-    const force = req.query.force === "true";
 
-    console.log("======================================");
-    console.log("DATASET DOWNLOAD STARTED");
-    console.log("Force download:", force);
-    console.log("======================================");
+    const force =
+      req.query.force === "true";
 
-    const result = await downloadAllSources({ force });
+    console.log(
+      "DATASET DOWNLOAD STARTED"
+    );
+
+    const result =
+      await downloadAllSources({
+        force
+      });
 
     lastDownloadResult = result;
 
-    console.log("======================================");
-    console.log("DATASET DOWNLOAD FINISHED");
-    console.log("======================================");
-
     res.json({
+
       status: "success",
-      message: "Download completed successfully.",
+
+      message:
+        "Download completed successfully.",
+
       result
+
     });
-  } catch (err) {
-    console.error("Download failed:", err.message);
+
+
+  } catch (error) {
+
+    console.error(
+      "Download failed:",
+      error.message
+    );
 
     res.status(500).json({
+
       status: "failed",
-      message: "Download failed.",
-      error: err.message
+
+      message:
+        "Download failed.",
+
+      error:
+        error.message
+
     });
+
   }
+
 });
 
+// =======================
+// Run ETL
+// =======================
+
+
 app.get("/etl", async (req, res) => {
+
+
   if (etlRunning) {
+
     return res.status(409).json({
+
       status: "running",
-      message: "ETL is already running. Please wait until it finishes."
+
+      message:
+        "ETL is already running."
+
     });
+
   }
 
+
   try {
+
+
     etlRunning = true;
 
-    console.log("======================================");
-    console.log("ETL TRIGGERED FROM SERVER");
-    console.log("======================================");
 
-    const result = await runEtl();
+    console.log(
+      "ETL STARTED"
+    );
+
+
+    const result =
+      await runEtl();
+
 
     lastEtlResult = result;
 
+
+
     if (result.status === "success") {
+
+
       return res.json({
+
         status: "success",
-        message: "Complete: data saved into database successfully.",
+
+        message:
+          "Data saved into database successfully.",
+
         result
+
       });
+
     }
 
-    return res.status(500).json({
+    res.status(500).json({
+
       status: "failed",
-      message: "ETL failed.",
+
+      message:
+        "ETL failed.",
+
       result
+
     });
-  } catch (err) {
-    console.error("ETL failed:", err.message);
+
+
+
+  } catch (error) {
+
+
+    console.error(
+      "ETL failed:",
+      error.message
+    );
 
     res.status(500).json({
+
       status: "failed",
-      message: "ETL failed.",
-      error: err.message
+
+      message:
+        "ETL failed.",
+
+      error:
+        error.message
+
     });
+
+
+
   } finally {
+
     etlRunning = false;
+
   }
+
 });
+
+// =======================
+// Status
+// =======================
+
 
 app.get("/status", (req, res) => {
+
   res.json({
-    server: "running",
+
+    server:
+      "running",
+
     etlRunning,
+
     lastDownloadResult,
+
     lastEtlResult
+
   });
+
 });
 
-app.use((err, req, res, next) => {
-  console.error(err);
-
-  res.status(err.statusCode || 500).json({
-    error: err.statusCode ? "Bad request" : "Server error",
-    message: err.message || "Unexpected server error."
-  });
-});
-
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
-  console.log(`Health: http://localhost:${PORT}/health`);
-  console.log(`Download: http://localhost:${PORT}/download`);
-  console.log(`Force download: http://localhost:${PORT}/download?force=true`);
-  console.log(`Run ETL: http://localhost:${PORT}/etl`);
-  console.log(`Status: http://localhost:${PORT}/status`);
-  console.log(`AccidentInfoAPI: http://localhost:${PORT}/accidentinfoapi/health`);
-  console.log(` Swagger UI: http://localhost:${PORT}/api-docs`);  // ← ADD THIS
-  console.log(` OpenAPI JSON: http://localhost:${PORT}/openapi.json`);  // ← ADD THIS
-});
+// =======================
+// 404 Handler
+// =======================
 
 app.use((req, res) => {
+
   res.status(404).json({
-    error: "Not found",
-    message: "Available routes: /health, /download, /etl, /status, /accidentinfoapi/health.",
+
+    error:
+      "Not found",
+
+    message:
+      "Route does not exist."
+
   });
+
+});
+
+// =======================
+// Error Handler
+// =======================
+
+app.use((err, req, res, next) => {
+
+  console.error(err);
+
+
+  res.status(
+    err.statusCode || 500
+  )
+    .json({
+
+      error:
+        "Server error",
+
+      message:
+        err.message ||
+        "Unexpected error."
+
+    });
+
+});
+
+// =======================
+// Start Server
+// =======================
+
+app.listen(PORT, () => {
+
+
+  console.log(
+    `Server running on port ${PORT}`
+  );
+
+
+  console.log(
+    `Health: ${BASE_URL}/health`
+  );
+
+
+  console.log(
+    `Swagger: ${BASE_URL}/api-docs`
+  );
+
+
+  console.log(
+    `API: ${BASE_URL}/accidentinfoapi/health`
+  );
+
+
 });
