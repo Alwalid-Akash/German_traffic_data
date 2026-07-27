@@ -1,4 +1,18 @@
+function getPublicBaseUrl(baseUrl = "http://localhost:3000") {
+  if (!baseUrl || baseUrl.includes("localhost")) {
+    return "https://german-traffic-data.onrender.com";
+  }
+
+  if (baseUrl.startsWith("http://german-traffic-data.onrender.com")) {
+    return baseUrl.replace("http://", "https://").replace(/\/$/, "");
+  }
+
+  return baseUrl.replace(/\/$/, "");
+}
+
 function buildOpenApiSpec(baseUrl = "http://localhost:3000") {
+  const publicBaseUrl = getPublicBaseUrl(baseUrl);
+
   return {
     openapi: "3.0.3",
     info: {
@@ -6,7 +20,7 @@ function buildOpenApiSpec(baseUrl = "http://localhost:3000") {
       version: "1.0.0",
       description: "API for German traffic accident analytics and provenance-aware regional statistics.",
     },
-    servers: [{ url: baseUrl }],
+    servers: [{ url: publicBaseUrl }],
     paths: {
       "/accidentinfoapi/health": {
         get: {
