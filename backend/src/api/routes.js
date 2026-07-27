@@ -33,7 +33,17 @@ router.get("/health", (req, res) => {
 });
 
 router.get("/openapi.json", (req, res) => {
-  res.json(buildOpenApiSpec(`${req.protocol}://${req.get("host")}`));
+  const configuredBaseUrl =
+    process.env.PUBLIC_BASE_URL ||
+    process.env.RENDER_EXTERNAL_URL ||
+    process.env.BASE_URL;
+
+  const baseUrl =
+    configuredBaseUrl && !configuredBaseUrl.includes("localhost")
+      ? configuredBaseUrl.replace(/\/$/, "")
+      : "https://german-traffic-data.onrender.com";
+
+  res.json(buildOpenApiSpec(baseUrl));
 });
 
 router.get("/question-catalog", (req, res) => {

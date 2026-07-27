@@ -108,9 +108,15 @@ app.use(
 // =======================
 
 
+const configuredBaseUrl =
+  process.env.PUBLIC_BASE_URL ||
+  process.env.RENDER_EXTERNAL_URL ||
+  process.env.BASE_URL;
+
 const BASE_URL =
-  process.env.BASE_URL ||
-  "https://german-traffic-data.onrender.com";
+  configuredBaseUrl && !configuredBaseUrl.includes("localhost")
+    ? configuredBaseUrl.replace(/\/$/, "")
+    : "https://german-traffic-data.onrender.com";
 
 
 
