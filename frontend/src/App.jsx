@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "./api";
 import AboutPage from "./components/AboutPage";
 import AppHeader from "./components/AppHeader";
+import BackendTools from "./components/BackendTools";
 import DataLicensePanel from "./components/DataLicensePanel";
 import LoadingMessage from "./components/LoadingMessage";
 import QuestionConsole from "./components/QuestionConsole";
@@ -53,6 +54,7 @@ export default function App() {
           </>
         ) : null}
         {tab === "schema" ? <SchemaExplorer schemaMap={schemaMap} /> : null}
+        {tab === "tools" ? <BackendTools /> : null}
         {tab === "about" ? <AboutPage /> : null}
       </main>
     </div>

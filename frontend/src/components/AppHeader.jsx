@@ -1,6 +1,7 @@
 const TABS = [
   { id: "query", label: "Query" },
   { id: "schema", label: "Schema" },
+  { id: "tools", label: "Backend Tools" },
   { id: "about", label: "About" },
 ];
 
