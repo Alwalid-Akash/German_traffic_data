@@ -1,7 +1,7 @@
 const DEFAULT_API_BASE = "https://german-traffic-data.onrender.com";
 export const API_BASE = (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE).replace(/\/$/, "");
 
-async function request(path) {
+export async function request(path) {
   const response = await fetch(`${API_BASE}${path}`);
   const contentType = response.headers.get("content-type") || "";
   const body = contentType.includes("application/json")

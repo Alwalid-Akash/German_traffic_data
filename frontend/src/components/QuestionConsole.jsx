@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { request } from "../api";
 import QuestionForm from "./QuestionForm";
 import ResponseFrame from "./ResponseFrame";
 
@@ -66,13 +67,7 @@ export default function QuestionConsole({ catalog, options, stateOptions }) {
 
     try {
       const query = buildQueryParams(selectedQuestion.fields || [], form, selectedQuestion.fixedParams || {});
-      const response = await fetch(
-        `${selectedQuestion.endpoint}${query ? `?${query}` : ""}`
-      );
-      const body = await response.json();
-      if (!response.ok) {
-        throw new Error(body.message || "Request failed");
-      }
+      const body = await request(`${selectedQuestion.endpoint}${query ? `?${query}` : ""}`);
       setResult(body);
     } catch (err) {
       setError(err.message);
