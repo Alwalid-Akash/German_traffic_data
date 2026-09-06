@@ -1,7 +1,8 @@
+import { API_BASE } from "../api";
+
 const TABS = [
   { id: "query", label: "Query" },
   { id: "schema", label: "Schema" },
-  { id: "tools", label: "Backend Tools" },
   { id: "about", label: "About" },
 ];
 
@@ -27,6 +28,14 @@ export default function AppHeader({ activeTab, onTabChange }) {
                 {item.label}
               </button>
             ))}
+            <a
+              className="btn btn-sm btn-outline-dark"
+              href={`${API_BASE}/api-docs/`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Swagger UI
+            </a>
           </div>
         </div>
       </div>

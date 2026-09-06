@@ -18,12 +18,6 @@ export async function request(path) {
 
 export const api = {
   backendBaseUrl: API_BASE,
-  serverHealth: () => request("/health"),
-  projectMetadata: () => request("/metadata"),
-  status: () => request("/status"),
-  download: () => request("/download"),
-  forceDownload: () => request("/download?force=true"),
-  runEtl: () => request("/etl"),
   health: () => request("/accidentinfoapi/health"),
   coverage: () => request("/accidentinfoapi/metadata/coverage"),
   options: () => request("/accidentinfoapi/metadata/options"),
@@ -54,5 +48,4 @@ export const api = {
     return request(`/accidentinfoapi/answers/zero-accident-municipalities?${query}`);
   },
   schemaMap: () => request("/accidentinfoapi/schema-map"),
-  openapi: () => request("/accidentinfoapi/openapi.json"),
 };

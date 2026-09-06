@@ -7,768 +7,220 @@ const { downloadAllSources } = require("./src/etl/extractors/downloadhelper");
 const { runEtl } = require("./src/etl/runetl");
 const accidentInfoApi = require("./src/api/routes");
 
-
 const app = express();
-
 const PORT = process.env.PORT || 3000;
+const FRONTEND_URL = "https://german-traffic-data.vercel.app";
+const FALLBACK_BACKEND_URL = "https://german-traffic-data.onrender.com";
 
+let lastDownloadResult = null;
+let lastEtlResult = null;
+let etlRunning = false;
 
-// =======================
-// Middleware
-// =======================
+function getBaseUrl() {
+  const configuredUrl =
+    process.env.PUBLIC_BASE_URL ||
+    process.env.RENDER_EXTERNAL_URL ||
+    process.env.BASE_URL;
+
+  if (!configuredUrl || configuredUrl.includes("localhost")) {
+    return FALLBACK_BACKEND_URL;
+  }
+
+  return configuredUrl.replace(/\/$/, "");
+}
+
+function isAllowedOrigin(origin) {
+  return (
+    !origin ||
+    origin === "http://localhost:5173" ||
+    origin === FRONTEND_URL ||
+    /^https:\/\/.*\.vercel\.app$/.test(origin)
+  );
+}
+
+function logSection(title, detail = null) {
+  console.log("======================================");
+  console.log(title);
+  if (detail) console.log(detail);
+  console.log("======================================");
+}
+
+const BASE_URL = getBaseUrl();
+const openApiSpec = buildOpenApiSpec(BASE_URL);
 
 app.use(express.json());
 
+app.use(cors({
+  origin(origin, callback) {
+    if (isAllowedOrigin(origin)) return callback(null, true);
+    return callback(new Error("CORS blocked"));
+  },
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type"],
+}));
 
-// =======================
-// CORS Configuration
-// =======================
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
 
-const allowedOrigins = [
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
+app.use("/accidentinfoapi", accidentInfoApi);
 
-  "http://localhost:5173",
-
-  "https://german-traffic-data.vercel.app"
-
-];
-
-
-function isAllowedOrigin(origin) {
-  if (!origin) {
-    return true;
-  }
-
-  if (allowedOrigins.includes(origin)) {
-    return true;
-  }
-
-  return /^https:\/\/.*\.vercel\.app$/.test(origin);
-}
-
-
-app.use(
-  cors({
-
-    origin: function (origin, callback) {
-
-
-      if (isAllowedOrigin(origin)) {
-
-        return callback(null, true);
-
-      }
-
-
-      return callback(
-        new Error("CORS blocked")
-      );
-
-
+app.get("/", (req, res) => {
+  res.json({
+    project: "German Traffic Accident API",
+    message: "Backend running successfully",
+    frontend: FRONTEND_URL,
+    backend: BASE_URL,
+    routes: {
+      health: "/health",
+      metadata: "/metadata",
+      download: "/download",
+      forceDownload: "/download?force=true",
+      etl: "/etl",
+      status: "/status",
+      swagger: "/api-docs/",
+      accidentInfoApi: "/accidentinfoapi/health",
     },
-
-
-    methods: [
-      "GET",
-      "POST",
-      "OPTIONS"
-    ],
-
-
-    allowedHeaders: [
-      "Content-Type"
-    ]
-
-  })
-);
-
-
-
-// =======================
-// Request Logger
-// =======================
-
-app.use(
-  (req, res, next) => {
-
-
-    console.log(
-      `[${new Date().toISOString()}] ${req.method} ${req.url}`
-    );
-
-
-    next();
-
-
   });
+});
 
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", message: "Server is running" });
+});
 
+app.get("/openapi.json", (req, res) => {
+  res.json(openApiSpec);
+});
 
-// =======================
-// Swagger
-// =======================
-
-
-const configuredBaseUrl =
-  process.env.PUBLIC_BASE_URL ||
-  process.env.RENDER_EXTERNAL_URL ||
-  process.env.BASE_URL;
-
-const BASE_URL =
-  configuredBaseUrl && !configuredBaseUrl.includes("localhost")
-    ? configuredBaseUrl.replace(/\/$/, "")
-    : "https://german-traffic-data.onrender.com";
-
-
-
-const openApiSpec =
-  buildOpenApiSpec(BASE_URL);
-
-
-
-app.use(
-  "/api-docs",
-  swaggerUi.serve,
-  swaggerUi.setup(openApiSpec)
-);
-
-
-
-app.get(
-  "/openapi.json",
-  (req, res) => {
-
-    res.json(openApiSpec);
-
+app.get("/metadata", (req, res) => {
+  res.json({
+    project: "AccidentInfoAPI",
+    backend: BASE_URL,
+    frontend: FRONTEND_URL,
+    documentation: `${BASE_URL}/api-docs/`,
+    usefulRoutes: {
+      health: "/health",
+      apiHealth: "/accidentinfoapi/health",
+      metadataCoverage: "/accidentinfoapi/metadata/coverage",
+      metadataOptions: "/accidentinfoapi/metadata/options",
+      download: "/download",
+      forceDownload: "/download?force=true",
+      etl: "/etl",
+      status: "/status",
+      swagger: "/api-docs/",
+    },
   });
+});
 
+app.get("/download", async (req, res) => {
+  try {
+    const force = req.query.force === "true";
+    logSection("DATASET DOWNLOAD STARTED", `Force download: ${force}`);
 
-app.get(
-  "/metadata",
-  (req, res) => {
+    const result = await downloadAllSources({ force });
+    lastDownloadResult = result;
+
+    console.log("DATASET DOWNLOAD FINISHED");
+    console.log(result);
 
     res.json({
-
-      project:
-        "AccidentInfoAPI",
-
-      backend:
-        BASE_URL,
-
-      frontend:
-        "https://german-traffic-data.vercel.app",
-
-      documentation:
-        `${BASE_URL}/api-docs/`,
-
-      usefulRoutes: {
-
-        health:
-          "/health",
-
-        apiHealth:
-          "/accidentinfoapi/health",
-
-        metadataCoverage:
-          "/accidentinfoapi/metadata/coverage",
-
-        metadataOptions:
-          "/accidentinfoapi/metadata/options",
-
-        download:
-          "/download",
-
-        forceDownload:
-          "/download?force=true",
-
-        etl:
-          "/etl",
-
-        status:
-          "/status",
-
-        swagger:
-          "/api-docs/"
-
-      }
-
+      status: "success",
+      message: "Download completed successfully",
+      result,
     });
-
-  });
-
-
-
-// =======================
-// API Routes
-// =======================
-
-
-app.use(
-  "/accidentinfoapi",
-  accidentInfoApi
-);
-
-
-
-// =======================
-// ETL State
-// =======================
-
-
-let lastDownloadResult = null;
-
-let lastEtlResult = null;
-
-let etlRunning = false;
-
-
-
-
-// =======================
-// Home
-// =======================
-
-
-app.get(
-  "/",
-  (req, res) => {
-
-
-    res.json({
-
-      project:
-        "German Traffic Accident API",
-
-
-      message:
-        "Backend running successfully",
-
-
-      frontend:
-        "https://german-traffic-data.vercel.app",
-
-
-      backend:
-        "https://german-traffic-data.onrender.com",
-
-
-      routes: {
-
-        health: "/health",
-
-        metadata: "/metadata",
-
-        download: "/download",
-
-        forceDownload: "/download?force=true",
-
-        etl: "/etl",
-
-        status: "/status",
-
-        swagger: "/api-docs/",
-
-        accidentInfoApi: "/accidentinfoapi/health"
-
-      }
-
-
+  } catch (error) {
+    console.error("DOWNLOAD FAILED:", error.message);
+    res.status(500).json({
+      status: "failed",
+      message: "Download failed",
+      error: error.message,
     });
+  }
+});
 
-
-  });
-
-
-
-// =======================
-// Health
-// =======================
-
-
-app.get(
-  "/health",
-  (req, res) => {
-
-
-    res.json({
-
-      status: "ok",
-
-      message:
-        "Server is running"
-
+app.get("/etl", async (req, res) => {
+  if (etlRunning) {
+    return res.status(409).json({
+      status: "running",
+      message: "ETL already running",
     });
+  }
 
+  try {
+    etlRunning = true;
+    logSection("ETL STARTED");
 
-  });
+    const result = await runEtl();
+    lastEtlResult = result;
 
+    console.log("ETL RESULT:");
+    console.log(result);
 
-
-
-// =======================
-// Download Dataset
-// =======================
-
-
-app.get(
-  "/download",
-  async (req, res) => {
-
-
-    try {
-
-
-      const force =
-        req.query.force === "true";
-
-
-
-      console.log(
-        "======================================"
-      );
-
-
-      console.log(
-        "DATASET DOWNLOAD STARTED"
-      );
-
-
-      console.log(
-        "Force download:",
-        force
-      );
-
-
-      console.log(
-        "======================================"
-      );
-
-
-
-      const result =
-        await downloadAllSources({
-
-          force
-
-        });
-
-
-
-      lastDownloadResult =
-        result;
-
-
-
-      console.log(
-        "DATASET DOWNLOAD FINISHED"
-      );
-
-
-      console.log(result);
-
-
-
-      res.json({
-
+    if (result.status === "success") {
+      console.log("ETL COMPLETED SUCCESSFULLY");
+      return res.json({
         status: "success",
-
-        message:
-          "Download completed successfully",
-
-        result
-
+        message: "Data saved successfully",
+        result,
       });
-
-
-
     }
 
-    catch (error) {
-
-
-      console.error(
-        "DOWNLOAD FAILED:",
-        error.message
-      );
-
-
-
-      res.status(500)
-        .json({
-
-          status: "failed",
-
-          message:
-            "Download failed",
-
-          error:
-            error.message
-
-        });
-
-
-    }
-
-
-
-  });
-
-
-
-
-// =======================
-// Run ETL
-// =======================
-
-
-app.get(
-  "/etl",
-  async (req, res) => {
-
-
-    if (etlRunning) {
-
-
-      return res.status(409)
-        .json({
-
-          status: "running",
-
-          message:
-            "ETL already running"
-
-        });
-
-
-    }
-
-
-
-    try {
-
-
-      etlRunning = true;
-
-
-
-      console.log(
-        "======================================"
-      );
-
-
-      console.log(
-        "ETL STARTED"
-      );
-
-
-      console.log(
-        "======================================"
-      );
-
-
-
-      const result =
-        await runEtl();
-
-
-
-      lastEtlResult =
-        result;
-
-
-
-      console.log(
-        "ETL RESULT:"
-      );
-
-
-      console.log(result);
-
-
-
-      if (result.status === "success") {
-
-
-
-        console.log(
-          "ETL COMPLETED SUCCESSFULLY"
-        );
-
-
-
-        return res.json({
-
-          status: "success",
-
-          message:
-            "Data saved successfully",
-
-          result
-
-        });
-
-
-      }
-
-
-
-      res.status(500)
-        .json({
-
-          status: "failed",
-
-          message:
-            "ETL failed",
-
-          result
-
-        });
-
-
-
-    }
-
-    catch (error) {
-
-
-      console.error(
-        "ETL ERROR:",
-        error.message
-      );
-
-
-
-      res.status(500)
-        .json({
-
-          status: "failed",
-
-          message:
-            "ETL failed",
-
-          error:
-            error.message
-
-        });
-
-
-    }
-
-
-    finally {
-
-
-      etlRunning = false;
-
-
-    }
-
-
-
-  });
-
-
-
-
-// =======================
-// Status
-// =======================
-
-
-app.get(
-  "/status",
-  (req, res) => {
-
-
-    res.json({
-
-      server:
-        "running",
-
-      etlRunning,
-
-      lastDownloadResult,
-
-      lastEtlResult
-
-
+    return res.status(500).json({
+      status: "failed",
+      message: "ETL failed",
+      result,
     });
+  } catch (error) {
+    console.error("ETL ERROR:", error.message);
+    return res.status(500).json({
+      status: "failed",
+      message: "ETL failed",
+      error: error.message,
+    });
+  } finally {
+    etlRunning = false;
+  }
+});
 
-
+app.get("/status", (req, res) => {
+  res.json({
+    server: "running",
+    etlRunning,
+    lastDownloadResult,
+    lastEtlResult,
   });
-
-
-
-
-// =======================
-// 404
-// =======================
-
-
-app.use(
-  (req, res) => {
-
-
-    res.status(404)
-      .json({
-
-        error:
-          "Route not found"
-
-      });
-
-
-  });
-
-
-
-
-// =======================
-// Error Handler
-// =======================
-
-
-app.use(
-  (err, req, res, next) => {
-
-
-    console.error(err);
-
-
-    res.status(500)
-      .json({
-
-        error:
-          "Server error",
-
-        message:
-          err.message
-
-      });
-
-
-  });
-
-
-
-
-// =======================
-// Start Server
-// =======================
-
-
-app.listen(
-  PORT,
-  () => {
-
-
-    console.log(
-      "\n======================================"
-    );
-
-
-    console.log(
-      "AccidentInfoAPI backend is running"
-    );
-
-
-    console.log(
-      "======================================"
-    );
-
-
-    console.log(
-      `Local server:        http://localhost:${PORT}`
-    );
-
-
-    console.log(
-      `Backend URL:         ${BASE_URL}`
-    );
-
-
-    console.log(
-      `Swagger UI:          ${BASE_URL}/api-docs/`
-    );
-
-
-    console.log(
-      `Health:              ${BASE_URL}/health`
-    );
-
-
-    console.log(
-      `API health:          ${BASE_URL}/accidentinfoapi/health`
-    );
-
-
-    console.log(
-      `Metadata:            ${BASE_URL}/metadata`
-    );
-
-
-    console.log(
-      `Metadata coverage:   ${BASE_URL}/accidentinfoapi/metadata/coverage`
-    );
-
-
-    console.log(
-      `Metadata options:    ${BASE_URL}/accidentinfoapi/metadata/options`
-    );
-
-
-    console.log(
-      `Download:            ${BASE_URL}/download`
-    );
-
-
-    console.log(
-      `Force download:      ${BASE_URL}/download?force=true`
-    );
-
-
-    console.log(
-      `Run ETL:             ${BASE_URL}/etl`
-    );
-
-
-    console.log(
-      `Status:              ${BASE_URL}/status`
-    );
-
-
-    console.log(
-      "\nTerminal commands:"
-    );
-
-
-    console.log(
-      "  cd backend"
-    );
-
-
-    console.log(
-      "  npm run init-db"
-    );
-
-
-    console.log(
-      "  npm run download"
-    );
-
-
-    console.log(
-      "  npm run etl"
-    );
-
-
-    console.log(
-      "  npm run dev"
-    );
-
-
-    console.log(
-      "======================================\n"
-    );
-
-
-  });
+});
+
+app.use((req, res) => {
+  res.status(404).json({ error: "Route not found" });
+});
+
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ error: "Server error", message: err.message });
+});
+
+app.listen(PORT, () => {
+  console.log("\n======================================");
+  console.log("AccidentInfoAPI backend is running");
+  console.log("======================================");
+  console.log(`Local server:        http://localhost:${PORT}`);
+  console.log(`Backend URL:         ${BASE_URL}`);
+  console.log(`Swagger UI:          ${BASE_URL}/api-docs/`);
+  console.log(`Health:              ${BASE_URL}/health`);
+  console.log(`API health:          ${BASE_URL}/accidentinfoapi/health`);
+  console.log(`Metadata:            ${BASE_URL}/metadata`);
+  console.log(`Download:            ${BASE_URL}/download`);
+  console.log(`Force download:      ${BASE_URL}/download?force=true`);
+  console.log(`Run ETL:             ${BASE_URL}/etl`);
+  console.log(`Status:              ${BASE_URL}/status`);
+  console.log("\nTerminal commands:");
+  console.log("  cd backend");
+  console.log("  npm run init-db");
+  console.log("  npm run download");
+  console.log("  npm run etl");
+  console.log("  npm run dev");
+  console.log("======================================\n");
+});
