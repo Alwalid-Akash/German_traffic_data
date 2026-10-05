@@ -1,9 +1,10 @@
 export default function SchemaExplorer({ schemaMap }) {
   return (
     <div className="row g-4">
+      <div className="col-12"><h1 className="h3 fw-bold">Database design</h1><p className="text-secondary mb-0">Six connected tables link accident events, regions, statistical measures and import history.</p></div>
       <div className="col-xl-8">
-        <div className="card shadow-sm">
-          <div className="card-body">
+        <section>
+          <div>
             <h2 className="h6 mb-1">Schema to answer map</h2>
             <p className="text-muted small mb-3">Which table is used for which answer.</p>
           <div className="table-responsive">
@@ -27,12 +28,12 @@ export default function SchemaExplorer({ schemaMap }) {
             </table>
           </div>
           </div>
-        </div>
+        </section>
       </div>
 
       <div className="col-xl-4">
-        <div className="card shadow-sm mb-4">
-          <div className="card-body">
+        <section className="border-start ps-4">
+          <div>
             <h2 className="h6 mb-1">Core tables</h2>
           <ul className="small mb-0 mt-3">
             <li><strong>regions</strong>: AGS, names, hierarchy.</li>
@@ -41,7 +42,7 @@ export default function SchemaExplorer({ schemaMap }) {
             <li><strong>import_runs</strong> and <strong>source_files</strong>: provenance and reproducibility.</li>
           </ul>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );

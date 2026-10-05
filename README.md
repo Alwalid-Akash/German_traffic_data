@@ -1,180 +1,67 @@
-# 📊 ETL Data Hub – Full‑Stack Data Pipeline
+# AccidentInfoAPI
 
-A  full‑stack project that demonstrates **E**xtract, **T**ransform, **L**oad (ETL) from three public data sources into a PostgreSQL database, serves the data via a REST API, and displays it in a clean, responsive React dashboard.
----
+Explore German traffic accident counts, regional comparisons and data availability.
+The React and Bootstrap frontend reads a Node.js/Express REST API backed by PostgreSQL.
+The ETL imports Unfallatlas, GV-ISys and Regionalstatistik data.
 
-## 🚀 Features
+## Documentation
 
-- **Extract** – Downloads two direct CSV files and one ZIP archive containing a CSV from the web.
-- **Transform** – Parses, unpivots, and cleans the data (e.g., wide‑to‑long for population data).
-- **Load** – Inserts structured data into a PostgreSQL database with unique constraints.
-- **REST API** – Express server exposes endpoints for each dataset (`/api/population`, `/api/co2`, `/api/gapminder`).
-- **React Frontend** – Bootstrap‑based dashboard with dataset selector, loading spinner, error handling, and responsive data table.
-- **Easy to extend** – Swap datasets by editing a single ETL script and corresponding SQL schema.
+- [Final technical guide](backend/docs/Final_Technical_Guide.pdf) - the retained 3 October 2026 architecture snapshot.
+- [Database design and relationships](backend/docs/03_database_schema.md).
+- [Database schema](backend/pgsql/schemas.sql) - executable schema source.
 
----
+The guide describes the interface before the latest usability update. Current navigation is Explore accidents, Database design and About; Sources & licences is available on every page.
 
-## 🧱 Architecture
-CSV/ZIP/XLXS URLs → Node.js ETL → PostgreSQL → Express REST API → React + Bootstrap Frontend
+## Run locally
 
+Configure `backend/.env` with `DATABASE_URL` for your PostgreSQL database.
+The current database connection requests SSL; use a compatible database configuration.
+Never put database credentials in frontend configuration.
 
----
-
-## 🛠️ Tech Stack
-
-| Layer       | Technology                              |
-|-------------|-----------------------------------------|
-| Frontend    | React (Vite), React‑Bootstrap, Axios    |
-| Backend     | Node.js, Express, `cors`, `dotenv`      |
-| Database    | PostgreSQL, `pg` driver                 |
-| ETL         | Node.js, `axios`, `csv-parser`, `adm-zip` |
-| Styling     | Bootstrap 5                             |
-
----
-
-## 📦 Prerequisites
-
-- **Node.js** ≥ 16.x
-- **PostgreSQL** ≥ 14.x
-- **Git** (optional)
-
----
-
-
-📊 ETL Data Hub – Full‑Stack Data Pipeline
-
-# Quick Start: How to Run the Project
-
-This document explains the shortest way to run the AccidentInfoAPI project.
-
-## 1. Requirements
-
-Make sure these are installed:
-
-- Node.js
-- npm
-- PostgreSQL
-
-Also make sure your backend `.env` file contains the correct PostgreSQL connection settings.
-
-## 2. Install Dependencies
-
-Open a terminal in the project folder.
-
-### Backend
+From the project root:
 
 ```bash
 cd backend
 npm install
-```
-
-### Frontend
-
-```bash
-cd ../frontend
-npm install
-```
-
-## 3. Create Database Tables
-
-From the backend folder:
-
-```bash
-cd backend
 npm run init-db
-```
-
-This creates the normalized database schema.
-
-## 4. Download Source Data
-
-From the backend folder:
-
-```bash
 npm run download
-```
-
-This downloads the official source files into `backend/data`.
-
-If you want to download everything again, use:
-
-```bash
-npm run download:force
-```
-
-## 5. Run ETL
-
-From the backend folder:
-
-```bash
 npm run etl
-```
-
-This parses, transforms, and loads the data into PostgreSQL.
-
-## 6. Start Backend API
-
-From the backend folder:
-
-```bash
 npm run dev
 ```
 
-Backend runs at:
+Only run the download and ETL commands when preparing or refreshing data.
+Check individual source results and import status; a completed run does not establish complete source coverage.
 
-```text
-http://localhost:3000
+In `frontend/.env.local`, set:
+
+```dotenv
+VITE_API_BASE_URL=http://localhost:3000
 ```
 
-Useful URLs:
-
-```text
-Health: http://localhost:3000/health
-API health: http://localhost:3000/accidentinfoapi/health
-OpenAPI JSON: http://localhost:3000/accidentinfoapi/openapi.json
-Question catalog: http://localhost:3000/accidentinfoapi/question-catalog
-```
-
-## 7. Start Frontend
-
-Open a second terminal.
+In another terminal, from the project root:
 
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
 
-Frontend usually runs at:
+Open the URL printed by Vite. The default is http://localhost:5173.
+Without the frontend override, the configured Render API is used.
+For production, set `VITE_API_BASE_URL` to the backend HTTPS URL before running `npm run build`.
 
-```text
-http://localhost:5173
-```
+The frontend query catalog is supplied by the backend. Deploy backend catalog wording changes together with the frontend.
+Swagger UI is at `/api-docs/`; its current server URL configuration can point to Render even when opened locally.
 
-## 8. Normal Run Order
+## Data sources and licences
 
-Use this order when starting from an empty project setup:
+- [Unfallatlas / OpenGeodata NRW](https://www.opengeodata.nrw.de/produkte/transport_verkehr/unfallatlas/): [Data licence Germany - Attribution 2.0](https://www.govdata.de/dl-de/by-2-0).
+- [GV-ISys / Destatis](https://www.destatis.de/DE/Themen/Laender-Regionen/Regionales/Gemeindeverzeichnis/_inhalt.html): consult [Destatis reuse terms](https://www.destatis.de/DE/Service/Impressum/copyright.html) and the source publication.
+- [Regionalstatistik](https://www.regionalstatistik.de/genesis/online): consult the source table for licence and attribution requirements.
 
-```text
-1. cd backend
-2. npm install
-3. npm run init-db
-4. npm run download
-5. npm run etl
-6. npm run dev
-7. cd ../frontend
-8. npm install
-9. npm run dev
-```
+This independent student application normalizes records and calculates results. Cite the original providers and reference years when reusing results.
 
-## 9. If Data Was Deleted
+## Operational limits
 
-If `backend/data` was deleted, run again:
-
-```bash
-cd backend
-npm run download
-npm run etl
-```
-
-The project is designed to rebuild the database from official downloaded sources.
-
+There is no user authentication or role enforcement. Maintenance routes remain unprotected even though the public frontend has no maintenance buttons.
+Counts describe imported events, not injured people. Missing coverage can produce zero matches, and passenger-car rates may combine different reference years.

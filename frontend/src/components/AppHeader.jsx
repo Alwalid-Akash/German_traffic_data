@@ -1,28 +1,29 @@
 import { API_BASE } from "../api";
 
 const TABS = [
-  { id: "query", label: "Query" },
-  { id: "schema", label: "Schema" },
+  { id: "query", label: "Explore accidents" },
+  { id: "schema", label: "Database design" },
   { id: "about", label: "About" },
 ];
 
 export default function AppHeader({ activeTab, onTabChange }) {
   return (
-    <header className="sticky-top border-bottom bg-white">
+    <header className="border-bottom bg-white">
       <div className="container py-3">
         <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
           <div>
-            <h1 className="h4 mb-1">AccidentInfoAPI</h1>
+            <div className="h5 fw-bold mb-1">AccidentInfoAPI</div>
             <div className="text-muted small">
-              Dynamic regional accident answers from normalized tables
+              German traffic accident statistics
             </div>
           </div>
-          <div className="btn-group" role="tablist" aria-label="Main sections">
+          <nav className="d-flex flex-wrap gap-2" aria-label="Main navigation">
             {TABS.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 className={`btn btn-sm ${activeTab === item.id ? "btn-dark" : "btn-outline-dark"}`}
+                aria-current={activeTab === item.id ? "page" : undefined}
                 onClick={() => onTabChange(item.id)}
               >
                 {item.label}
@@ -34,9 +35,10 @@ export default function AppHeader({ activeTab, onTabChange }) {
               target="_blank"
               rel="noreferrer"
             >
-              Swagger UI
+              API explorer
             </a>
-          </div>
+            <a className="btn btn-sm btn-link" href="#data-licences">Sources &amp; licences</a>
+          </nav>
         </div>
       </div>
     </header>

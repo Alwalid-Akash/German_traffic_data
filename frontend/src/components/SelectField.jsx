@@ -35,11 +35,11 @@ export default function SelectField({ field, value, onChange, options, stateOpti
   if (field.type === "state-select") {
     const states = options?.states?.length ? options.states : stateOptions || [];
     return (
-      <select className="form-select" value={value || ""} onChange={(event) => onChange(event.target.value)} required={field.required}>
-        <option value="">Select state</option>
+      <select id={`field-${field.key}`} className="form-select" value={value || ""} onChange={(event) => onChange(event.target.value)} required={field.required}>
+        <option value="">{field.required ? "Select state" : "All states"}</option>
         {states.map((state) => (
           <option key={state.ags} value={state.ags}>
-            {state.ags} - {state.name}
+            {state.name}
           </option>
         ))}
       </select>
@@ -49,7 +49,7 @@ export default function SelectField({ field, value, onChange, options, stateOpti
   if (field.type === "region-select") {
     const regions = options?.regions || [];
     return (
-      <select className="form-select" value={value || ""} required={field.required} onChange={(event) => onChange(event.target.value)}>
+      <select id={`field-${field.key}`} className="form-select" value={value || ""} required={field.required} onChange={(event) => onChange(event.target.value)}>
         <option value="">Select region</option>
         {regions.map((region) => (
           <option key={`${region.level}-${region.ags}`} value={region.name}>
@@ -64,7 +64,7 @@ export default function SelectField({ field, value, onChange, options, stateOpti
   if (!values) return null;
 
   return (
-    <select className="form-select" value={value || ""} onChange={(event) => onChange(event.target.value)} required={field.required}>
+    <select id={`field-${field.key}`} className="form-select" value={value || ""} onChange={(event) => onChange(event.target.value)} required={field.required}>
       <option value="">Select {field.label.toLowerCase()}</option>
       {values.map((item) => (
         <option key={item} value={item}>

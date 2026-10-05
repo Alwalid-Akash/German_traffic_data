@@ -1,98 +1,60 @@
-function formatCellValue(value) {
-  if (value === null || value === undefined || value === "") {
-    return "No data";
-  }
+const labels = {
+  district_name: "District", accident_year: "Accident year", passenger_car_year: "Car stock year",
+  accident_count: "Accidents", passenger_cars: "Registered cars",
+  accidents_per_100k_passenger_cars: "Accidents per 100,000 cars",
+  fatal_accidents: "Fatal accidents", ags: "Region code", name: "Municipality",
+};
+const numberFormat = new Intl.NumberFormat("en-GB", { maximumFractionDigits: 2 });
+
+function display(value, key = "") {
+  if (value === null || value === undefined || value === "") return "Not available";
+  if (key.includes("year") || key === "ags") return String(value);
+  if (typeof value === "number" || (typeof value === "string" && /^-?\d+(\.\d+)?$/.test(value))) return numberFormat.format(Number(value));
   return String(value);
 }
 
-function ResponseHeader({ selectedQuestion }) {
-  return (
-    <div className="d-flex align-items-start justify-content-between gap-3">
-      <div>
-        <h3 className="h6 mb-1">Answer</h3>
-        <p className="text-muted small mb-0">{selectedQuestion?.description}</p>
-      </div>
-    </div>
-  );
-}
+export default function ResponseFrame({ result, selectedQuestion, submitted, stateOptions = [] }) {
+  if (!result) return <div className="answer-empty py-5">
+    <h3 className="h5">Explore the available records</h3>
+    <p className="text-secondary mb-0">Accident counts, first available years and regional comparisons.</p>
+  </div>;
 
-function CountAnswer({ result, selectedQuestion }) {
+  const data = result.data;
+  const filters = result.data?.filters || submitted || {};
+  const state = stateOptions.find(item => item.ags === filters.stateAgs)?.name;
+  const context = [filters.year, state, filters.regionName].filter(Boolean).join(" · ");
+  const rows = Array.isArray(data) ? data : null;
+  const scalarKey = ["answer", "earliest_accident_year", "available_from_year"].find(key => data && Object.hasOwn(data, key));
+  const mismatch = rows?.some(row => row.accident_year != null && row.passenger_car_year != null && Number(row.accident_year) !== Number(row.passenger_car_year));
+  const columns = rows?.length ? Object.keys(rows[0]) : [];
   return (
-    <div className="d-grid gap-3">
-      <ResponseHeader selectedQuestion={selectedQuestion} />
-      <div className="card bg-light border">
-        <div className="card-body">
-          <div className="small text-muted mb-1">Result</div>
-          <div className="display-5 fw-bold lh-1 text-dark">{formatCellValue(result.data.answer)}</div>
-        <div className="text-muted small">Answer calculated by the API from the database.</div>
-        </div>
-      </div>
-      <details>
-        <summary className="small text-muted">Show filters and raw response</summary>
-        <pre className="bg-dark text-light rounded p-3 mt-2 mb-0 overflow-auto small">{JSON.stringify(result, null, 2)}</pre>
-      </details>
-    </div>
-  );
-}
-
-function TableAnswer({ result, selectedQuestion }) {
-  const rows = result.data;
-  const columns = rows.length ? Object.keys(rows[0]) : [];
-
-  return (
-    <div className="d-grid gap-3">
-      <ResponseHeader selectedQuestion={selectedQuestion} />
-      <div className="table-responsive border rounded bg-white">
-        {rows.length ? (
-          <table className="table table-sm table-bordered table-striped table-hover align-middle mb-0">
-            <thead>
-              <tr>
-                {columns.map((column) => (
-                  <th key={column} scope="col">
-                    {column}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, index) => (
-                <tr key={index}>
-                  {columns.map((column) => (
-                    <td key={column}>{formatCellValue(row[column])}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
+    <div>
+      <h3 className="h6 fw-bold">{selectedQuestion.title}</h3>
+      {context && <p className="text-secondary">{context}</p>}
+      {scalarKey ? <div className="py-4">
+        <div className="answer-number">{display(data[scalarKey], scalarKey)}</div>
+        <p className="text-secondary mt-2 mb-0">{scalarKey === "answer" ? "Matching accident events" : "First year found in the imported records"}</p>
+        {data[scalarKey] === null && <p className="small mt-2">No matching records are available for this selection.</p>}
+      </div> : rows ? <>
+        {mismatch && <div className="alert alert-warning small">Different reference years: some car-stock figures are from a different year than the accidents. Both years are shown below.</div>}
+        {selectedQuestion.id === "passenger-car-rate" && <p className="small text-secondary">Accidents ÷ registered passenger cars × 100,000. Regions without car-stock data are not included.</p>}
+        {rows.length ? <div className="table-responsive result-table my-3" tabIndex={0} aria-label="Answer results">
+          <table className="table table-hover align-middle mb-0">
+            <caption className="caption-top small">{rows.length} {rows.length === 1 ? "region" : "regions"} returned</caption>
+            <thead><tr>{columns.map(column => <th key={column} scope="col">{labels[column] || column.replaceAll("_", " ")}</th>)}</tr></thead>
+            <tbody>{rows.map((row, index) => <tr key={row.ags || index}>{columns.map(column => <td key={column}>{display(row[column], column)}</td>)}</tr>)}</tbody>
           </table>
-        ) : (
-          <div className="d-flex align-items-center text-muted p-3" style={{ minHeight: "120px" }}>No matching rows found.</div>
-        )}
-      </div>
-      <details>
-        <summary className="small text-muted">Show raw API response</summary>
-        <pre className="bg-dark text-light rounded p-3 mt-2 mb-0 overflow-auto small">{JSON.stringify(result, null, 2)}</pre>
+        </div> : <p className="py-4 text-secondary">No matching regions were returned. Data may be unavailable for this selection.</p>}
+      </> : <p>No recognizable answer was returned by the data service.</p>}
+      <p className="small text-secondary border-top pt-3 mt-3">
+        {selectedQuestion.id === "zero-accident-municipalities" ? "Zero means no matching imported records. Check coverage before concluding that no accidents occurred." :
+        scalarKey === "answer" || selectedQuestion.id === "top-fatal-districts" ? "Counts represent accident events, not the number of people injured or killed." :
+        "Results depend on the years and regions included in the imported datasets."}
+      </p>
+      <details className="mt-4 small">
+        <summary>Technical response</summary>
+        <pre className="bg-light border rounded p-3 mt-2 raw-response">{JSON.stringify(result, null, 2)}</pre>
       </details>
-    </div>
-  );
-}
-
-export default function ResponseFrame({ result, selectedQuestion }) {
-  if (!result) {
-    return <div className="d-flex align-items-center text-muted" style={{ minHeight: "120px" }}>Run a question to see the answer here.</div>;
-  }
-
-  if (result.data?.answer !== undefined) {
-    return <CountAnswer result={result} selectedQuestion={selectedQuestion} />;
-  }
-
-  if (Array.isArray(result.data)) {
-    return <TableAnswer result={result} selectedQuestion={selectedQuestion} />;
-  }
-
-  return (
-    <div className="d-grid gap-3">
-      <ResponseHeader selectedQuestion={selectedQuestion} />
-      <pre className="bg-dark text-light rounded p-3 mb-0 overflow-auto small">{JSON.stringify(result, null, 2)}</pre>
     </div>
   );
 }

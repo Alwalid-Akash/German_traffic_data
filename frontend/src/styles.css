@@ -1,3 +1,25 @@
-body {
-  background: #f8f9fa;
+body { background: #f8f9fa; color: #223038; }
+* { letter-spacing: 0; }
+main { min-height: 55vh; }
+a { text-underline-offset: 3px; }
+.query-form { background: #fff; border: 1px solid #d9e0e5; border-radius: 6px; padding: 1.5rem; }
+.answer-section { min-width: 0; }
+.answer-empty { border-bottom: 1px solid #d9e0e5; min-height: 220px; }
+.answer-number { font-size: 3rem; font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; color: #17615b; }
+.result-table { max-width: 100%; }
+.result-table table { min-width: 480px; }
+.result-table th { font-size: .8rem; color: #53616b; background: #eff3f5; }
+.result-table td { font-size: .92rem; }
+.result-table th, .result-table td { padding: .8rem; }
+.raw-response { max-height: 320px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.about-page { max-width: 1000px; }
+.process-list li { padding-bottom: .75rem; }
+.form-label { font-size: .9rem; font-weight: 600; }
+.form-select, .form-control { min-height: 44px; }
+summary { cursor: pointer; }
+#data-licences { scroll-margin-top: 1rem; }
+@media (max-width: 575px) {
+  .query-form { padding: 1rem; }
+  .answer-number { font-size: 2.5rem; }
+  .result-table table { min-width: 360px; }
 }

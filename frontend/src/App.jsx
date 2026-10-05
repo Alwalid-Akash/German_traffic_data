@@ -14,9 +14,12 @@ export default function App() {
   const [options, setOptions] = useState(null);
   const [schemaMap, setSchemaMap] = useState(null);
   const [status, setStatus] = useState("loading");
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    let active = true;
     async function load() {
+      setStatus("loading");
       try {
         const [catalogResponse, optionsResponse, statesResponse, schemaResponse] =
           await Promise.all([
@@ -26,35 +29,42 @@ export default function App() {
             api.schemaMap(),
           ]);
 
+        if (!active) return;
         setCatalog(catalogResponse.questions || []);
         setOptions(optionsResponse.options || {});
         setStates(statesResponse.data || statesResponse || []);
         setSchemaMap(schemaResponse);
         setStatus("ready");
       } catch (err) {
+        if (!active) return;
         setStatus("error");
       }
     }
 
     load();
-  }, []);
+    return () => { active = false; };
+  }, [attempt]);
 
   return (
     <div className="min-vh-100 bg-light">
       <AppHeader activeTab={tab} onTabChange={setTab} />
 
       <main className="container py-4">
-        <LoadingMessage status={status} />
-
         {tab === "query" ? (
           <>
-            <DataLicensePanel />
-            <QuestionConsole catalog={catalog} stateOptions={states} options={options} />
+            <div className="mb-4">
+              <h1 className="h3 fw-bold">Explore traffic accidents in Germany</h1>
+              <p className="text-secondary mb-1">Accident counts, regional comparisons and data availability from official German statistics.</p>
+              <p className="small text-secondary mb-0">Results describe imported accident records. Coverage can differ by region and year.</p>
+            </div>
+            <LoadingMessage status={status} onRetry={() => setAttempt(value => value + 1)} />
+            {status === "ready" && <QuestionConsole catalog={catalog} stateOptions={states} options={options} />}
           </>
         ) : null}
-        {tab === "schema" ? <SchemaExplorer schemaMap={schemaMap} /> : null}
+        {tab === "schema" ? <><LoadingMessage status={status} onRetry={() => setAttempt(value => value + 1)} />{status === "ready" && <SchemaExplorer schemaMap={schemaMap} />}</> : null}
         {tab === "about" ? <AboutPage /> : null}
       </main>
+      <DataLicensePanel />
     </div>
   );
 }

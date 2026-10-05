@@ -1,8 +1,9 @@
 const QUESTION_CATALOG = [
   {
     id: "earliest-accident-year",
-    title: "Earliest accident year in the complete dataset",
-    description: "Uses all Unfallatlas accident rows and returns MIN(accidents.year).",
+    shortTitle: "First available year",
+    title: "What is the first available accident year?",
+    description: "The earliest year found across the imported accident records.",
     endpoint: "/accidentinfoapi/answers/earliest-accident-year",
     method: "GET",
     fields: [],
@@ -11,8 +12,9 @@ const QUESTION_CATALOG = [
   },
   {
     id: "personal-injury-by-state",
-    title: "Personal injury accidents by state and year",
-    description: "Answers the Saxony 2023 question, but the state and year are editable.",
+    shortTitle: "Injury accident count",
+    title: "How many injury accidents occurred?",
+    description: "Accidents involving personal injury in a federal state and year.",
     endpoint: "/accidentinfoapi/answers/count",
     method: "GET",
     fields: [
@@ -24,8 +26,9 @@ const QUESTION_CATALOG = [
   },
   {
     id: "state-availability",
-    title: "Data available from year for a state",
-    description: "Answers NRW and Mecklenburg-Western Pomerania availability questions.",
+    shortTitle: "State data availability",
+    title: "When do records begin for a state?",
+    description: "The first imported accident year for the selected federal state.",
     endpoint: "/accidentinfoapi/answers/available-from",
     method: "GET",
     fields: [
@@ -36,8 +39,9 @@ const QUESTION_CATALOG = [
   },
   {
     id: "pedestrian-by-state",
-    title: "Pedestrian accidents by state and year",
-    description: "Answers the Berlin 2023 pedestrian question, but state and year are editable.",
+    shortTitle: "Pedestrian accident count",
+    title: "How many accidents involved pedestrians?",
+    description: "Accident events involving pedestrians, by federal state and year.",
     endpoint: "/accidentinfoapi/answers/count",
     method: "GET",
     fields: [
@@ -49,8 +53,9 @@ const QUESTION_CATALOG = [
   },
   {
     id: "passenger-car-rate",
+    shortTitle: "Accidents per 100,000 cars",
     title: "Traffic accidents per 100,000 passenger cars",
-    description: "Cross-source query: Unfallatlas accident counts divided by Regionalatlas passenger-car stock.",
+    description: "Compare regional accident counts relative to registered passenger cars. Reference years may differ.",
     endpoint: "/accidentinfoapi/answers/passenger-car-rate",
     method: "GET",
     fields: [
@@ -62,8 +67,9 @@ const QUESTION_CATALOG = [
   },
   {
     id: "top-fatal-districts",
-    title: "Top districts with highest fatal accidents",
-    description: "Ranks districts by fatal accident count for the selected year.",
+    shortTitle: "Fatal accident ranking",
+    title: "Which districts had the most fatal accidents?",
+    description: "Regions ranked by the number of fatal accident events in a year.",
     endpoint: "/accidentinfoapi/answers/top-fatal-districts",
     method: "GET",
     fields: [
@@ -75,8 +81,9 @@ const QUESTION_CATALOG = [
   },
   {
     id: "zero-accident-municipalities",
-    title: "Municipalities with zero accidents",
-    description: "Answers the Saxony 2023 zero-case question, but state and year are editable.",
+    shortTitle: "Municipalities with no records",
+    title: "Which municipalities have no recorded accidents?",
+    description: "Municipalities with no matching imported events. Missing coverage can also produce a zero result.",
     endpoint: "/accidentinfoapi/answers/zero-accident-municipalities",
     method: "GET",
     fields: [
@@ -88,8 +95,9 @@ const QUESTION_CATALOG = [
   },
   {
     id: "custom-count",
-    title: "Simple custom accident count",
-    description: "Count accidents for one year. Optionally choose a state, type a region name, and enable simple participant/injury filters.",
+    shortTitle: "Custom accident count",
+    title: "Count accidents by place and involvement",
+    description: "Accidents matching a year, optional place and involvement filters. Multiple filters must all match.",
     endpoint: "/accidentinfoapi/answers/count",
     method: "GET",
     fields: [

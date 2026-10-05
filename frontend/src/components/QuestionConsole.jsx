@@ -1,130 +1,101 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { request } from "../api";
 import QuestionForm from "./QuestionForm";
 import ResponseFrame from "./ResponseFrame";
 
-function buildInitialValues(fields) {
-  return fields.reduce((acc, field) => {
-    acc[field.key] = field.defaultValue ?? "";
-    return acc;
-  }, {});
+function initialValues(fields, options, states) {
+  return Object.fromEntries(fields.map(field => {
+    let value = field.defaultValue ?? "";
+    const available = field.type === "year-select" ? options?.years :
+      field.type === "state-select" ? states.map(state => state.ags) : null;
+    if (available && !available.some(item => String(item) === String(value))) {
+      value = field.required ? available.at(-1) ?? "" : "";
+    }
+    return [field.key, value];
+  }));
 }
 
-function buildQueryParams(fields, values, fixedParams = {}) {
-  const params = new URLSearchParams();
-  Object.entries(fixedParams).forEach(([key, value]) => {
-    params.set(key, String(value));
-  });
-  fields.forEach((field) => {
+function queryParams(question, values) {
+  const params = new URLSearchParams(question.fixedParams || {});
+  for (const field of question.fields || []) {
     const value = values[field.key];
     if (field.type === "checkbox") {
       if (value === "true") params.set(field.key, "true");
-      return;
-    }
-    if (value !== "" && value !== null && value !== undefined) {
+    } else if (value !== "" && value !== undefined && value !== null) {
       params.set(field.key, String(value));
     }
-  });
+  }
   return params.toString();
 }
 
 export default function QuestionConsole({ catalog, options, stateOptions }) {
   const [selectedId, setSelectedId] = useState("");
-  const selectedQuestion = useMemo(
-    () => catalog.find((question) => question.id === selectedId) || catalog[0] || null,
-    [catalog, selectedId]
-  );
+  const question = useMemo(() => catalog.find(item => item.id === selectedId) || catalog[0], [catalog, selectedId]);
   const [form, setForm] = useState({});
   const [result, setResult] = useState(null);
+  const [submitted, setSubmitted] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const controller = useRef(null);
 
   useEffect(() => {
-    if (catalog.length && !selectedId) {
-      setSelectedId(catalog[0].id);
-    }
-  }, [catalog, selectedId]);
-
-  useEffect(() => {
-    if (selectedQuestion) {
-      setForm(buildInitialValues(selectedQuestion.fields || []));
-      setResult(null);
-      setError("");
-    }
-  }, [selectedQuestion]);
+    controller.current?.abort();
+    if (question) setForm(initialValues(question.fields || [], options, stateOptions));
+    setResult(null);
+    setSubmitted(null);
+    setError("");
+    setLoading(false);
+    return () => controller.current?.abort();
+  }, [question, options, stateOptions]);
 
   function updateField(key, value) {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm(current => ({ ...current, [key]: value }));
+    setResult(null);
+    setSubmitted(null);
+    setError("");
   }
 
   async function runQuestion(event) {
     event.preventDefault();
-    if (!selectedQuestion) return;
-
+    if (!question) return;
+    controller.current?.abort();
+    const active = new AbortController();
+    controller.current = active;
     setLoading(true);
     setError("");
     setResult(null);
-
     try {
-      const query = buildQueryParams(selectedQuestion.fields || [], form, selectedQuestion.fixedParams || {});
-      const body = await request(`${selectedQuestion.endpoint}${query ? `?${query}` : ""}`);
+      const query = queryParams(question, form);
+      const body = await request(question.endpoint + (query ? "?" + query : ""), { signal: active.signal });
+      if (active.signal.aborted) return;
       setResult(body);
+      setSubmitted({ ...form });
     } catch (err) {
-      setError(err.message);
+      if (!active.signal.aborted) setError(err.message);
     } finally {
-      setLoading(false);
+      if (!active.signal.aborted) setLoading(false);
     }
   }
 
-  if (!selectedQuestion) {
-    return null;
-  }
-
+  if (!question) return <p role="status">No questions are currently available.</p>;
   return (
-    <div className="row g-4">
-      <div className="col-xl-5">
-        <QuestionForm
-          catalog={catalog}
-          selectedId={selectedId}
-          selectedQuestion={selectedQuestion}
-          form={form}
-          options={options}
-          stateOptions={stateOptions}
-          loading={loading}
-          onQuestionChange={setSelectedId}
-          onFieldChange={updateField}
-          onSubmit={runQuestion}
-        />
+    <div className="row g-4 g-lg-5">
+      <div className="col-lg-5 col-xl-4">
+        <QuestionForm catalog={catalog} selectedId={question.id} selectedQuestion={question}
+          form={form} options={options} stateOptions={stateOptions} loading={loading}
+          onQuestionChange={setSelectedId} onFieldChange={updateField} onSubmit={runQuestion} />
       </div>
-
-      <div className="col-xl-7">
-        <div className="card shadow-sm mb-4">
-          <div className="card-body">
-          <div className="d-flex align-items-center justify-content-between mb-3">
-            <div>
-              <h2 className="h6 mb-1">Response</h2>
-            </div>
-            <span className="badge text-bg-light">{selectedQuestion.answerShape}</span>
-          </div>
-          {error ? (
-            <pre className="alert alert-danger mb-0">{error}</pre>
-          ) : (
-            <ResponseFrame result={result} selectedQuestion={selectedQuestion} />
-          )}
-          </div>
+      <section className="col-lg-7 col-xl-8 answer-section" aria-label="Answer" aria-busy={loading}>
+        <div className="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+          <h2 className="h5 mb-0">Your answer</h2>
+          {result && <span className="small text-secondary">From imported records</span>}
         </div>
-
-        <div className="card shadow-sm">
-          <div className="card-body">
-            <h2 className="h6 mb-1">How this stays dynamic</h2>
-          <ul className="small mb-0 mt-3">
-            <li>The list of question types comes from the backend catalog.</li>
-            <li>State options come from the live `regions` table.</li>
-            <li>The form only sends chosen filters to `AccidentInfoAPI`.</li>
-          </ul>
-          </div>
+        <div aria-live="polite">
+          {loading ? <p role="status" className="py-5"><span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />Finding your answer...</p> :
+          error ? <div role="alert" className="alert alert-danger"><h3 className="h6">We couldn't retrieve this answer</h3><p className="mb-0">{error}</p></div> :
+          <ResponseFrame result={result} selectedQuestion={question} submitted={submitted} stateOptions={stateOptions} />}
         </div>
-      </div>
+      </section>
     </div>
   );
 }

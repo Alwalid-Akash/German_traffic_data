@@ -13,17 +13,16 @@ export default function QuestionForm({
   onSubmit,
 }) {
   return (
-    <div className="card shadow-sm">
-      <div className="card-body">
-        <h2 className="h6 mb-1">Question Builder</h2>
-        <p className="text-muted small mb-3">Choose a question and fill only the fields you need.</p>
+    <section className="query-form" aria-labelledby="question-heading">
+        <h2 id="question-heading" className="h5 mb-3">Your question</h2>
+      <fieldset disabled={loading}>
 
         <div className="mb-3">
-          <label className="form-label">Question</label>
-          <select className="form-select" value={selectedId} onChange={(event) => onQuestionChange(event.target.value)}>
+          <label className="form-label" htmlFor="question">Question</label>
+          <select id="question" className="form-select" value={selectedId} onChange={(event) => onQuestionChange(event.target.value)}>
             {catalog.map((question) => (
               <option key={question.id} value={question.id}>
-                {question.title}
+                {question.shortTitle || question.title}
               </option>
             ))}
           </select>
@@ -34,9 +33,9 @@ export default function QuestionForm({
         <form onSubmit={onSubmit}>
           {(selectedQuestion.fields || []).map((field) => (
             <div className="mb-3" key={field.key}>
-              <label className="form-label">{field.label}</label>
+              <label className="form-label" htmlFor={`field-${field.key}`}>{field.label}{!field.required && field.type !== "checkbox" ? <span className="text-secondary small"> (optional)</span> : null}</label>
               {field.type === "checkbox" ? (
-                <select className="form-select" value={form[field.key] || ""} onChange={(event) => onFieldChange(field.key, event.target.value)}>
+                <select id={`field-${field.key}`} className="form-select" value={form[field.key] || ""} onChange={(event) => onFieldChange(field.key, event.target.value)}>
                   <option value="">Any</option>
                   <option value="true">Yes</option>
                 </select>
@@ -51,6 +50,7 @@ export default function QuestionForm({
               ) : (
                 <input
                   className="form-control"
+                  id={`field-${field.key}`}
                   type={field.type}
                   min={field.min}
                   max={field.max}
@@ -65,10 +65,10 @@ export default function QuestionForm({
           ))}
 
           <button className="btn btn-primary w-100" disabled={loading}>
-            {loading ? "Running..." : "Run query"}
+            {loading ? "Finding answer..." : "Show answer"}
           </button>
         </form>
-      </div>
-    </div>
+      </fieldset>
+    </section>
   );
 }
