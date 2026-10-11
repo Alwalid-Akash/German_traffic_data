@@ -1,0 +1,61 @@
+name: Test and Deploy
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: backend
+
+      - name: Check backend JavaScript syntax
+        run: |
+          node --check server.js
+          find src -name '*.js' -exec node --check {} \;
+        working-directory: backend
+
+      - name: Build backend Docker image
+        run: docker build -t accident-backend ./backend
+
+      - name: Build frontend Docker image
+        run: |
+          docker build \
+            --build-arg VITE_API_BASE_URL=https://german-traffic-data.onrender.com \
+            -t accident-frontend ./frontend
+
+  deploy:
+    needs: check
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Render deployment
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          test -n "$HOOK" || { echo "Missing Render hook"; exit 1; }
+          curl --fail --silent --show-error -X POST "$HOOK" -o /dev/null
+
+      - name: Trigger Vercel deployment
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          test -n "$HOOK" || { echo "Missing Vercel hook"; exit 1; }
+          curl --fail --silent --show-error -X POST "$HOOK" -o /dev/null
