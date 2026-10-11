@@ -53,6 +53,45 @@ For production, set `VITE_API_BASE_URL` to the backend HTTPS URL before running 
 The frontend query catalog is supplied by the backend. Deploy backend catalog wording changes together with the frontend.
 Swagger UI is at `/api-docs/`; its current server URL configuration can point to Render even when opened locally.
 
+## Run with Docker
+
+Start Docker Desktop first. Keep `DATABASE_URL` in `backend/.env`; Docker
+passes it only to the backend at runtime. This setup uses your existing
+PostgreSQL database, not a new database container. Both Docker build contexts
+exclude `.env` files. Do not pass credentials as frontend build arguments.
+
+From the project root, start both containers with a local backend:
+
+```bash
+VITE_API_BASE_URL=http://localhost:3000 docker compose up --build -d
+```
+
+Open http://localhost:5173. The backend is at http://localhost:3000.
+Stop any existing processes using these ports first.
+
+Alternatively, run just the Docker frontend against the deployed Render API:
+
+```bash
+VITE_API_BASE_URL=https://german-traffic-data.onrender.com docker compose up --build -d --no-deps frontend
+```
+
+This does not stop a backend container that is already running.
+`VITE_API_BASE_URL` is public build-time configuration, not a secret. Docker
+uses a build argument here; it does not need a `visibility` setting. Rebuild
+when changing the URL. It selects one backend and does not provide failover.
+The local URL works when the browser runs on this computer; remote visitors
+need a reachable backend URL and an allowed CORS origin.
+
+```bash
+docker compose logs -f backend
+docker compose down
+```
+
+Stopping containers does not delete your external database or `backend/data`.
+Downloads and ETL are not run automatically. Do not rerun ETL into an existing
+database without checking duplicate handling: current accident identifiers
+depend on file paths, which differ inside Docker.
+
 ## Data sources and licences
 
 - [Unfallatlas / OpenGeodata NRW](https://www.opengeodata.nrw.de/produkte/transport_verkehr/unfallatlas/): [Data licence Germany - Attribution 2.0](https://www.govdata.de/dl-de/by-2-0).
